@@ -72,12 +72,41 @@ class MUI_Node
 	//------------------------------------------------------------------------------------------------
 	void SetRuntime(MUI_Runtime runtime)
 	{
+		if (!runtime && m_Runtime)
+			DestroyHostWidgetsTree();
 		m_Runtime = runtime;
 		int count = m_aChildren.Count();
 		int i;
 		for (i = 0; i < count; i++)
 		{
 			m_aChildren[i].SetRuntime(runtime);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void DestroyHostWidgetsTree()
+	{
+		DestroyHostWidgets();
+		int count = m_aChildren.Count();
+		int i;
+		for (i = 0; i < count; i++)
+		{
+			if (m_aChildren[i])
+				m_aChildren[i].DestroyHostWidgetsTree();
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void SyncHostWidgetsTree()
+	{
+		SyncHostWidgets();
+		int count = m_aChildren.Count();
+		int i;
+		for (i = 0; i < count; i++)
+		{
+			// Visit hidden nodes too — BlurWidgets must be cleared when cards hide.
+			if (m_aChildren[i])
+				m_aChildren[i].SyncHostWidgetsTree();
 		}
 	}
 
@@ -212,6 +241,20 @@ class MUI_Node
 	}
 
 	//------------------------------------------------------------------------------------------------
+	void SetMaxHeight(float maxHeight)
+	{
+		m_Style.m_fMaxHeight = maxHeight;
+		InvalidateLayout();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void SetMinHeight(float minHeight)
+	{
+		m_Style.m_fMinHeight = minHeight;
+		InvalidateLayout();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void SetFillWidth()
 	{
 		m_Style.m_WidthMode = MUI_SizeMode.Fill;
@@ -293,6 +336,24 @@ class MUI_Node
 	bool ClipsChildren()
 	{
 		return m_Style.m_bClipChildren;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! When true, paints on the backdrop surface under BlurWidgets (FxBackdrop).
+	bool PaintsOnBackdropLayer()
+	{
+		return false;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Host-owned Enfusion widgets (blur, etc.) — sync after layout each frame.
+	void SyncHostWidgets()
+	{
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void DestroyHostWidgets()
+	{
 	}
 
 	//------------------------------------------------------------------------------------------------

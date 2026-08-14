@@ -25,6 +25,8 @@ ChimeraMenuBase.OnMenuUpdate
 
 Each `MUI_RenderSurface` = Frame + **CanvasWidget** (fills/strokes/circles) + **pooled TextWidget** layer (glyphs). Clip/scroll nodes get extra surfaces (`CLIPCHILDREN` frames). Hidden **EditBoxWidget** (`MUI_EditBridge`) is the only typing/IME/console VK path.
 
+**Layers (z-order):** backdrop surface (FxBackdrop) → **BlurWidget** under each `MUI_Card` → chrome surface (cards/controls) → clip surfaces (scroll content). Cards use frosted `DeepFrost` fill so the blurred FX shows through. Toggle with `card.SetBlurEnabled(false)` / `SetBlurIntensity(0..1)`.
+
 Layout space = reference/unscaled pixels (`DPIUnscale(GetScreenSize)`). Canvas vertices are **screen pixels** (`workspace.DPIScale`). Text `FrameSlot` stays unscaled. Clip frames use `node.DrawX/Y()` so they follow intro slide.
 
 ## Files (`F:\Mikes-UI\Scripts\Game\`)
@@ -33,7 +35,7 @@ Layout space = reference/unscaled pixels (`DPIUnscale(GetScreenSize)`). Canvas v
 |---|---|
 | Core/`MUI_Runtime` | Mount / MountPassive / Unmount, Tick, factories, focusables, back, prompts, MeasureText |
 | Core/`MUI_Node` | Scene graph, style helpers, intro/hover/focus, AddChild / ClearChildren, Paint/Tick |
-| Core/`MUI_Style` `MUI_Theme` `MUI_Rect` `MUI_Log` `MUI_Ease` `MUI_ColorUtil` | Style, colors, easing, Fade/Mix (Fade copies into a 96-color ring so GC cannot kill mid-draw) |
+| Core/`MUI_Style` `MUI_Theme` `MUI_Rect` `MUI_Log` `MUI_Ease` `MUI_ColorUtil` | Style, colors (linear Color via FromSRGBA), easing, Fade/Mix |
 | Layout/`MUI_LayoutKind` `MUI_LayoutEngine` | Overlay / StackVertical / StackHorizontal; Fill/Hug/Exact |
 | Render/`MUI_RenderSurface` `MUI_CanvasRenderer` `MUI_TextRenderer` | Draw API, tessellation, text pool |
 | Input/`MUI_InputRouter` `MUI_EditBridge` | Mouse + MenuUp/Down/Left/Right/Select/Back; hidden EditBox |
@@ -79,11 +81,13 @@ Measure treats **main-axis Fill as Hug**, then Arrange distributes leftover by `
 
 `MUI_Label.SetColor(Color)` for severity tinting. `MUI_Node.ClearChildren()` for rebuilding lists.
 
-`MUI_ScrollView` clips children (`m_bClipChildren`). Default Hug height; set Exact/MaxHeight when it should scroll.
+`MUI_ScrollView` clips children (`m_bClipChildren` + clip `RenderSurface` with `CLIPCHILDREN` / `INHERIT_CLIPPING`). Default Hug height; for lists use **`SetViewportHeight(h)`** (exact, stable parent size) or **`SetMaxViewportHeight(h)`** (hug until max, then scroll). Do not rely on raw `m_fMaxHeight` alone for long data — prefer `SetViewportHeight` so cards/footers never get covered by unscrolled paint.
 
 ## Drawing
 
 `MUI_RenderSurface`: `FillRect` `StrokeRect` `DrawLine` `FillCircle` `StrokeCircle` `DrawArc` `FillGradientV` `DrawText`. Colors via `MUI_ColorUtil.Fade(c, opacity)` — never pass two `Fade()` results that would share one scratch; Fade copies. `Create(..., ignoreCursor)` — **required true for HUD/`MountPassive`**: Canvas without `IGNORE_CURSOR` on `ALWAYS_TOP` steals all mouse clicks from native UI.
+
+**Color space:** Enfusion `Color` is **linear**. Author theme tokens with `Color.FromSRGBA(r,g,b,a)` (sRGB bytes), matching vanilla `UIColors`. Never `new Color(0.93, …)` with sRGB floats — that stores sRGB-as-linear and washes midtones when `PackToInt()` encodes linear→sRGB for Canvas/Text.
 
 **Degenerate polygons:** Canvas `DrawPolygon triangulation failed` happens when rounded-rect radius ≥ half the short side (pill/circle collapse). `MUI_CanvasRenderer` clamps radius to `min(w,h)*0.5 - 1`, skips tiny fills (`w/h < 0.75`, circles `r < 1.25`), drops duplicate corner verts. Do not pass radius == half height. Thin bars (2–4px) use radius 0.
 

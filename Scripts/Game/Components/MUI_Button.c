@@ -125,10 +125,6 @@ class MUI_Button : MUI_Node
 		surface.StrokeRect(x, y, w, h, MUI_ColorUtil.Fade(MUI_Theme.Sheen, op * (0.15 + hover * 0.4)), 1.2, 10);
 		PaintFocusRing(surface, x, y, w, h);
 
-		float sheen = MUI_Ease.Fract(GetTime() * 0.55 + hover);
-		float sx = x + sheen * (w + 40) - 30;
-		surface.FillRect(sx, y + 3, 24, h - 6, MUI_ColorUtil.Fade(MUI_Theme.Sheen, op * (0.12 + hover * 0.25)), 6);
-
 		float ripple = GetRipple();
 		if (ripple > 0 && ripple < 1)
 		{

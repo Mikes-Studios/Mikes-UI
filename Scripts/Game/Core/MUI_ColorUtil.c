@@ -1,4 +1,7 @@
 //------------------------------------------------------------------------------------------------
+//! Color helpers. Enfusion Color stores **linear** RGB.
+//! Theme tokens come from FromSRGBA (sRGB authoring → linear storage).
+//! Pack for Canvas/TextWidget with PackToInt() (linear → packed sRGB ARGB).
 class MUI_ColorUtil
 {
 	protected static ref Color s_Scratch;
@@ -14,6 +17,7 @@ class MUI_ColorUtil
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Multiplies alpha only. RGB stays linear.
 	static Color Fade(Color src, float opacity)
 	{
 		if (!src)
@@ -82,13 +86,23 @@ class MUI_ColorUtil
 	}
 
 	//------------------------------------------------------------------------------------------------
-	static int Pack(float r, float g, float b, float a)
+	//! Pack a linear Color for Canvas / SetColorInt (sRGB ARGB int).
+	static int Pack(Color src)
 	{
-		Color s = Scratch();
-		s.SetR(r);
-		s.SetG(g);
-		s.SetB(b);
-		s.SetA(a);
-		return s.PackToInt();
+		if (!src)
+			return 0;
+		return src.PackToInt();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Author sRGB 0-1 floats → packed ARGB. Prefer Theme.FromSRGBA tokens over this.
+	static int PackSRGB(float r, float g, float b, float a)
+	{
+		int ri = Math.Round(Math.Clamp(r, 0, 1) * 255);
+		int gi = Math.Round(Math.Clamp(g, 0, 1) * 255);
+		int bi = Math.Round(Math.Clamp(b, 0, 1) * 255);
+		int ai = Math.Round(Math.Clamp(a, 0, 1) * 255);
+		ref Color c = Color.FromSRGBA(ri, gi, bi, ai);
+		return c.PackToInt();
 	}
 }

@@ -5,6 +5,7 @@ class MUI_Runtime
 	protected WorkspaceWidget m_Workspace;
 	protected ref MUI_Node m_Root;
 	protected ref MUI_RenderSurface m_RootSurface;
+	protected ref MUI_RenderSurface m_ChromeSurface;
 	protected ref array<ref MUI_RenderSurface> m_aClipSurfaces;
 	protected ref array<ref MUI_Node> m_aOwned;
 	protected ref MUI_InputRouter m_Input;
@@ -64,6 +65,11 @@ class MUI_Runtime
 			return false;
 		m_RootSurface.FillHost();
 
+		m_ChromeSurface = new MUI_RenderSurface();
+		if (!m_ChromeSurface.Create(m_Workspace, m_wHost, 5, !interactive))
+			return false;
+		m_ChromeSurface.FillHost();
+
 		m_bInteractive = interactive;
 		if (m_bInteractive)
 		{
@@ -116,7 +122,21 @@ class MUI_Runtime
 		}
 		m_aClipSurfaces.Clear();
 		if (m_aOwned)
+		{
+			int oi;
+			for (oi = 0; oi < m_aOwned.Count(); oi++)
+			{
+				if (m_aOwned[oi])
+					m_aOwned[oi].DestroyHostWidgets();
+			}
 			m_aOwned.Clear();
+		}
+		if (m_Root)
+			m_Root.DestroyHostWidgetsTree();
+
+		if (m_ChromeSurface)
+			m_ChromeSurface.Destroy();
+		m_ChromeSurface = null;
 
 		if (m_RootSurface)
 			m_RootSurface.Destroy();
@@ -236,29 +256,68 @@ class MUI_Runtime
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void Paint()
+	WorkspaceWidget GetWorkspace()
 	{
-		m_bPaintDirty = false;
-		if (!m_Root || !m_RootSurface)
-			return;
-		m_RootSurface.Begin();
-		PaintNode(m_Root, m_RootSurface, 0, 0, 1);
-		m_RootSurface.Submit();
+		return m_Workspace;
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void PaintNode(MUI_Node node, notnull MUI_RenderSurface surface, float ox, float oy, float opacity)
+	Widget GetHost()
+	{
+		return m_wHost;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void Paint()
+	{
+		m_bPaintDirty = false;
+		if (!m_Root || !m_RootSurface || !m_ChromeSurface)
+			return;
+
+		// Backdrop pass (FxBackdrop) under BlurWidgets.
+		m_RootSurface.Begin();
+		PaintNode(m_Root, m_RootSurface, 0, 0, 1, true);
+		m_RootSurface.Submit();
+
+		// Chrome pass (cards/controls) above BlurWidgets. Card.Paint syncs its blur rect.
+		m_ChromeSurface.Begin();
+		PaintNode(m_Root, m_ChromeSurface, 0, 0, 1, false);
+		m_ChromeSurface.Submit();
+
+		// Keep host widgets (card blur) in sync even when their owners are hidden.
+		if (m_Root)
+			m_Root.SyncHostWidgetsTree();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! backdropPass: only paint nodes with PaintsOnBackdropLayer. Chrome pass skips those paints.
+	protected void PaintNode(MUI_Node node, notnull MUI_RenderSurface surface, float ox, float oy, float opacity, bool backdropPass)
 	{
 		if (!node || !node.IsVisible())
 			return;
 
+		bool isBackdrop = node.PaintsOnBackdropLayer();
+		bool paintSelf = false;
+		if (backdropPass)
+			paintSelf = isBackdrop;
+		else
+			paintSelf = !isBackdrop;
+
+		if (paintSelf && surface.HasClipRect())
+		{
+			MUI_Rect wr = node.GetWorldRect();
+			if (surface.IsFullyOutsideClip(wr.m_fX + ox, wr.m_fY + oy + node.GetSlideY(), wr.m_fW, wr.m_fH))
+				return;
+		}
+
 		node.BeginDraw(ox, oy + node.GetSlideY(), opacity);
-		node.Paint(surface);
+		if (paintSelf)
+			node.Paint(surface);
 
 		float childOy = oy + node.GetSlideY();
 		float childOp = opacity * node.GetIntro();
 
-		if (node.ClipsChildren())
+		if (paintSelf && node.ClipsChildren())
 		{
 			MUI_RenderSurface clip = GetOrCreateClipSurface(node);
 			if (clip)
@@ -267,7 +326,7 @@ class MUI_Runtime
 				int count = node.GetChildCount();
 				int i;
 				for (i = 0; i < count; i++)
-					PaintNode(node.GetChild(i), clip, ox, childOy, childOp);
+					PaintNode(node.GetChild(i), clip, ox, childOy, childOp, false);
 				clip.Submit();
 			}
 			return;
@@ -276,7 +335,7 @@ class MUI_Runtime
 		int count = node.GetChildCount();
 		int i;
 		for (i = 0; i < count; i++)
-			PaintNode(node.GetChild(i), surface, ox, childOy, childOp);
+			PaintNode(node.GetChild(i), surface, ox, childOy, childOp, backdropPass);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -293,7 +352,7 @@ class MUI_Runtime
 			return null;
 
 		ref MUI_RenderSurface surface = new MUI_RenderSurface();
-		int z = 2 + m_aClipSurfaces.Count();
+		int z = 10 + m_aClipSurfaces.Count();
 		if (!surface.Create(m_Workspace, m_wHost, z, !m_bInteractive))
 			return null;
 		surface.SetClipNode(node);
@@ -340,7 +399,20 @@ class MUI_Runtime
 		int i;
 		for (i = node.GetChildCount() - 1; i >= 0; i--)
 		{
-			MUI_Node childHit = HitTestNode(node.GetChild(i), x, y);
+			MUI_Node child = node.GetChild(i);
+			if (!child)
+				continue;
+			// Clipped parents must not hit-test children that sit outside the viewport.
+			if (node.ClipsChildren())
+			{
+				MUI_Rect cr = child.GetWorldRect();
+				MUI_Rect pr = node.GetWorldRect();
+				if (cr.m_fY + cr.m_fH < pr.m_fY)
+					continue;
+				if (cr.m_fY > pr.m_fY + pr.m_fH)
+					continue;
+			}
+			MUI_Node childHit = HitTestNode(child, x, y);
 			if (childHit)
 				return childHit;
 		}

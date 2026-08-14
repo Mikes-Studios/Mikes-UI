@@ -14,10 +14,50 @@ class MUI_ScrollView : MUI_Node
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Fixed viewport height. Prefer this for lists so content never grows the parent card.
+	void SetViewportHeight(float height)
+	{
+		if (height < 1)
+			height = 1;
+		m_Style.m_HeightMode = MUI_SizeMode.Exact;
+		m_Style.m_fHeight = height;
+		m_Style.m_fMinHeight = height;
+		m_Style.m_fMaxHeight = height;
+		InvalidateLayout();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Hug content height up to maxHeight, then scroll. Use SetViewportHeight when the parent
+	//! should keep a stable size (leaderboards, long forms).
+	void SetMaxViewportHeight(float maxHeight)
+	{
+		if (maxHeight < 1)
+			maxHeight = 1;
+		m_Style.m_HeightMode = MUI_SizeMode.Hug;
+		m_Style.m_fMaxHeight = maxHeight;
+		InvalidateLayout();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	override void OnMouseWheel(int wheel)
 	{
 		float next = m_fScrollY - wheel * 28;
 		SetScrollY(next);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	override void Paint(MUI_RenderSurface surface)
+	{
+		float x = DrawX();
+		float y = DrawY();
+		float op = GetDrawOpacity();
+		if (op < 0.01)
+			return;
+
+		// Subtle well so clipped content reads as a bounded viewport.
+		surface.FillRect(x, y, m_World.m_fW, m_World.m_fH, MUI_ColorUtil.Fade(MUI_Theme.Field, op * 0.55), 8);
+		surface.StrokeRect(x, y, m_World.m_fW, m_World.m_fH, MUI_ColorUtil.Fade(MUI_Theme.Border, op * 0.7), 1.0, 8);
+		PaintForeground(surface);
 	}
 
 	//------------------------------------------------------------------------------------------------

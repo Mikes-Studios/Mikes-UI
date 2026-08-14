@@ -2,7 +2,6 @@
 class MUI_FxBackdrop : MUI_Node
 {
 	protected static const int MOTE_COUNT = 22;
-	protected static const float GRID = 56;
 
 	protected ref array<float> m_aX;
 	protected ref array<float> m_aY;
@@ -26,6 +25,12 @@ class MUI_FxBackdrop : MUI_Node
 		m_aV = new array<float>();
 		m_aS = new array<float>();
 		m_aPhase = new array<float>();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	override bool PaintsOnBackdropLayer()
+	{
+		return true;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -85,31 +90,9 @@ class MUI_FxBackdrop : MUI_Node
 
 		surface.FillRect(x, y, w, h, MUI_ColorUtil.Fade(MUI_Theme.Overlay, op), 0);
 
-		DrawGrid(surface, x, y, w, h, op);
 		DrawRadar(surface, x, y, w, h, op);
 		DrawMotes(surface, x, y, op);
-		DrawScan(surface, x, y, w, h, op);
 		DrawVignette(surface, x, y, w, h, op);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	protected void DrawGrid(MUI_RenderSurface surface, float x, float y, float w, float h, float op)
-	{
-		Color line = MUI_ColorUtil.Fade(MUI_Theme.Grid, op);
-		float t = GetTime();
-		float drift = MUI_Ease.Fract(t * 0.04) * GRID;
-		float gx = -drift;
-		while (gx < w)
-		{
-			surface.DrawLine(x + gx, y, x + gx, y + h, line, 1);
-			gx = gx + GRID;
-		}
-		float gy = drift * 0.5;
-		while (gy < h)
-		{
-			surface.DrawLine(x, y + gy, x + w, y + gy, line, 1);
-			gy = gy + GRID;
-		}
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -151,15 +134,6 @@ class MUI_FxBackdrop : MUI_Node
 				pulse = 0;
 			surface.FillCircle(x + m_aX[i], y + m_aY[i], m_aS[i], MUI_ColorUtil.Fade(MUI_Theme.Mote, op * pulse));
 		}
-	}
-
-	//------------------------------------------------------------------------------------------------
-	protected void DrawScan(MUI_RenderSurface surface, float x, float y, float w, float h, float op)
-	{
-		float t = MUI_Ease.Fract(GetTime() * 0.12);
-		float sy = y + t * h;
-		surface.FillRect(x, sy, w, 18, MUI_ColorUtil.Fade(MUI_Theme.Scan, op), 0);
-		surface.FillRect(x, sy + 18, w, 2, MUI_ColorUtil.Fade(MUI_Theme.Cyan, op * 0.35), 0);
 	}
 
 	//------------------------------------------------------------------------------------------------

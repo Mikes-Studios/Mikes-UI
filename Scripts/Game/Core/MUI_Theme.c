@@ -1,4 +1,7 @@
 //------------------------------------------------------------------------------------------------
+//! Theme colors are stored in **linear** RGB (Enfusion Color space).
+//! Author with Color.FromSRGBA(r,g,b,a) — sRGB bytes — never `new Color(sRGB floats)`.
+//! Canvas / TextWidget ints come from PackToInt(), which encodes linear → packed sRGB ARGB.
 class MUI_Theme
 {
 	static const string FONT_REGULAR = "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt";
@@ -8,32 +11,39 @@ class MUI_Theme
 	static const int FONT_BODY = 20;
 	static const int FONT_SMALL = 16;
 
-	static const ref Color Overlay = new Color(0.02, 0.03, 0.04, 0.72);
-	static const ref Color Panel = new Color(0.09, 0.12, 0.14, 0.97);
-	static const ref Color PanelAlt = new Color(0.12, 0.16, 0.18, 1.0);
-	static const ref Color Accent = new Color(0.93, 0.62, 0.16, 1.0);
-	static const ref Color AccentDark = new Color(0.62, 0.38, 0.08, 1.0);
-	static const ref Color Text = new Color(0.93, 0.94, 0.90, 1.0);
-	static const ref Color TextMuted = new Color(0.62, 0.66, 0.64, 1.0);
-	static const ref Color Button = new Color(0.16, 0.22, 0.24, 1.0);
-	static const ref Color ButtonHover = new Color(0.22, 0.30, 0.28, 1.0);
-	static const ref Color ButtonPress = new Color(0.93, 0.62, 0.16, 1.0);
-	static const ref Color Field = new Color(0.05, 0.07, 0.08, 1.0);
-	static const ref Color FieldFocus = new Color(0.08, 0.11, 0.10, 1.0);
-	static const ref Color Border = new Color(0.28, 0.36, 0.34, 1.0);
-	static const ref Color ToggleOn = new Color(0.93, 0.62, 0.16, 1.0);
-	static const ref Color ToggleOff = new Color(0.18, 0.22, 0.23, 1.0);
-	static const ref Color Danger = new Color(0.72, 0.22, 0.16, 1.0);
-	static const ref Color DangerHover = new Color(0.86, 0.30, 0.20, 1.0);
+	// Surfaces
+	static const ref Color Overlay = Color.FromSRGBA(5, 8, 10, 184);
+	static const ref Color Panel = Color.FromSRGBA(23, 31, 36, 247);
+	static const ref Color PanelAlt = Color.FromSRGBA(31, 41, 46, 255);
+	static const ref Color Deep = Color.FromSRGBA(8, 12, 14, 245);
+	static const ref Color DeepFrost = Color.FromSRGBA(10, 15, 20, 220);
+	static const ref Color Header = Color.FromSRGBA(18, 28, 33, 255);
+	static const ref Color Field = Color.FromSRGBA(13, 18, 20, 255);
+	static const ref Color FieldFocus = Color.FromSRGBA(20, 28, 26, 255);
+	static const ref Color Border = Color.FromSRGBA(71, 92, 87, 255);
 
-	static const ref Color Cyan = new Color(0.35, 0.92, 0.88, 1.0);
-	static const ref Color CyanDim = new Color(0.18, 0.55, 0.52, 1.0);
-	static const ref Color Deep = new Color(0.03, 0.045, 0.055, 0.96);
-	static const ref Color Header = new Color(0.07, 0.11, 0.13, 1.0);
-	static const ref Color Glow = new Color(0.93, 0.62, 0.16, 0.22);
-	static const ref Color Grid = new Color(0.20, 0.55, 0.50, 0.10);
-	static const ref Color Mote = new Color(0.93, 0.72, 0.28, 0.55);
-	static const ref Color Scan = new Color(0.35, 0.92, 0.88, 0.07);
-	static const ref Color Sheen = new Color(1.0, 1.0, 0.92, 0.18);
-	static const ref Color Live = new Color(0.35, 0.95, 0.45, 1.0);
+	// Accents
+	static const ref Color Accent = Color.FromSRGBA(237, 158, 41, 255);
+	static const ref Color AccentDark = Color.FromSRGBA(158, 97, 20, 255);
+	static const ref Color Cyan = Color.FromSRGBA(89, 235, 224, 255);
+	static const ref Color CyanDim = Color.FromSRGBA(46, 140, 133, 255);
+	static const ref Color Live = Color.FromSRGBA(89, 242, 115, 255);
+	static const ref Color Danger = Color.FromSRGBA(184, 56, 41, 255);
+	static const ref Color DangerHover = Color.FromSRGBA(219, 77, 51, 255);
+
+	// Text / controls
+	static const ref Color Text = Color.FromSRGBA(237, 240, 230, 255);
+	static const ref Color TextMuted = Color.FromSRGBA(158, 168, 163, 255);
+	static const ref Color Button = Color.FromSRGBA(41, 56, 61, 255);
+	static const ref Color ButtonHover = Color.FromSRGBA(56, 77, 71, 255);
+	static const ref Color ButtonPress = Color.FromSRGBA(237, 158, 41, 255);
+	static const ref Color ToggleOn = Color.FromSRGBA(237, 158, 41, 255);
+	static const ref Color ToggleOff = Color.FromSRGBA(46, 56, 59, 255);
+
+	// FX (keep alpha intentional)
+	static const ref Color Glow = Color.FromSRGBA(237, 158, 41, 56);
+	static const ref Color Grid = Color.FromSRGBA(51, 140, 128, 26);
+	static const ref Color Mote = Color.FromSRGBA(237, 184, 71, 140);
+	static const ref Color Scan = Color.FromSRGBA(89, 235, 224, 18);
+	static const ref Color Sheen = Color.FromSRGBA(255, 255, 235, 46);
 }

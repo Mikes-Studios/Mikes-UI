@@ -26,8 +26,8 @@ class MUI_RenderSurface
 		m_bIgnoreCursor = ignoreCursor;
 
 		int frameFlags = WidgetFlags.VISIBLE | WidgetFlags.CLIPCHILDREN;
-		int canvasFlags = WidgetFlags.VISIBLE;
-		int textFlags = WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR;
+		int canvasFlags = WidgetFlags.VISIBLE | WidgetFlags.INHERIT_CLIPPING;
+		int textFlags = WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.CLIPCHILDREN | WidgetFlags.INHERIT_CLIPPING;
 		if (m_bIgnoreCursor)
 		{
 			frameFlags = frameFlags | WidgetFlags.IGNORE_CURSOR;
@@ -88,11 +88,56 @@ class MUI_RenderSurface
 		if (!m_wFrame || !m_ClipNode)
 			return;
 		MUI_Rect r = m_ClipNode.GetWorldRect();
+		float x = m_ClipNode.DrawX();
+		float y = m_ClipNode.DrawY();
+		float w = r.m_fW;
+		float h = r.m_fH;
+		if (w < 1)
+			w = 1;
+		if (h < 1)
+			h = 1;
 		FrameSlot.SetAnchorMin(m_wFrame, 0, 0);
 		FrameSlot.SetAnchorMax(m_wFrame, 0, 0);
-		FrameSlot.SetPos(m_wFrame, m_ClipNode.DrawX(), m_ClipNode.DrawY());
-		FrameSlot.SetSize(m_wFrame, r.m_fW, r.m_fH);
-		m_Origin.Set(m_ClipNode.DrawX(), m_ClipNode.DrawY(), r.m_fW, r.m_fH);
+		FrameSlot.SetPos(m_wFrame, x, y);
+		FrameSlot.SetSize(m_wFrame, w, h);
+		m_wFrame.SetFlags(WidgetFlags.CLIPCHILDREN);
+		m_Origin.Set(x, y, w, h);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	bool HasClipRect()
+	{
+		return m_ClipNode != null;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Local (origin-relative) bounds of the clip viewport.
+	bool GetLocalClipRect(out float x, out float y, out float w, out float h)
+	{
+		x = 0;
+		y = 0;
+		w = m_Origin.m_fW;
+		h = m_Origin.m_fH;
+		return m_ClipNode != null;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! True if a layout-space rect is completely outside the clip viewport (when clipped).
+	bool IsFullyOutsideClip(float x, float y, float w, float h)
+	{
+		if (!m_ClipNode)
+			return false;
+		float lx = x - m_Origin.m_fX;
+		float ly = y - m_Origin.m_fY;
+		if (lx + w < 0)
+			return true;
+		if (ly + h < 0)
+			return true;
+		if (lx > m_Origin.m_fW)
+			return true;
+		if (ly > m_Origin.m_fH)
+			return true;
+		return false;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -128,6 +173,8 @@ class MUI_RenderSurface
 	{
 		if (!m_wCanvas || !color)
 			return;
+		if (IsFullyOutsideClip(x, y, w, h))
+			return;
 		MUI_CanvasRenderer.AddFillRect(m_aCommands, Px(x - m_Origin.m_fX), Px(y - m_Origin.m_fY), Px(w), Px(h), color.PackToInt(), Px(radius));
 	}
 
@@ -135,6 +182,8 @@ class MUI_RenderSurface
 	void StrokeRect(float x, float y, float w, float h, Color color, float width, float radius)
 	{
 		if (!m_wCanvas || !color)
+			return;
+		if (IsFullyOutsideClip(x, y, w, h))
 			return;
 		MUI_CanvasRenderer.AddStrokeRect(m_aCommands, Px(x - m_Origin.m_fX), Px(y - m_Origin.m_fY), Px(w), Px(h), color.PackToInt(), Px(width), Px(radius));
 	}
@@ -197,6 +246,8 @@ class MUI_RenderSurface
 	void DrawText(float x, float y, float w, float h, string text, int fontSize, Color color, bool bold, bool center, bool vCenter, bool wrap)
 	{
 		if (!color)
+			return;
+		if (IsFullyOutsideClip(x, y, w, h))
 			return;
 		m_Text.Add(x - m_Origin.m_fX, y - m_Origin.m_fY, w, h, text, fontSize, color.PackToInt(), bold, center, vCenter, wrap);
 	}
