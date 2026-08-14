@@ -9,6 +9,7 @@ class MUI_RenderSurface
 	protected ref MUI_TextRenderer m_Text;
 	protected ref MUI_Rect m_Origin;
 	protected MUI_Node m_ClipNode;
+	protected bool m_bIgnoreCursor;
 
 	//------------------------------------------------------------------------------------------------
 	void MUI_RenderSurface()
@@ -19,10 +20,21 @@ class MUI_RenderSurface
 	}
 
 	//------------------------------------------------------------------------------------------------
-	bool Create(notnull WorkspaceWidget workspace, notnull Widget parent, int zOrder)
+	bool Create(notnull WorkspaceWidget workspace, notnull Widget parent, int zOrder, bool ignoreCursor = false)
 	{
 		m_Workspace = workspace;
-		m_wFrame = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.CLIPCHILDREN, Color.FromInt(Color.WHITE), zOrder, parent);
+		m_bIgnoreCursor = ignoreCursor;
+
+		int frameFlags = WidgetFlags.VISIBLE | WidgetFlags.CLIPCHILDREN;
+		int canvasFlags = WidgetFlags.VISIBLE;
+		int textFlags = WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR;
+		if (m_bIgnoreCursor)
+		{
+			frameFlags = frameFlags | WidgetFlags.IGNORE_CURSOR;
+			canvasFlags = canvasFlags | WidgetFlags.IGNORE_CURSOR;
+		}
+
+		m_wFrame = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, frameFlags, Color.FromInt(Color.WHITE), zOrder, parent);
 		if (!m_wFrame)
 		{
 			MUI_Log.Error("Failed to create render surface frame");
@@ -33,7 +45,7 @@ class MUI_RenderSurface
 		FrameSlot.SetAnchorMax(m_wFrame, 1, 1);
 		FrameSlot.SetOffsets(m_wFrame, 0, 0, 0, 0);
 
-		Widget canvasW = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE, Color.FromInt(Color.WHITE), 0, m_wFrame);
+		Widget canvasW = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, canvasFlags, Color.FromInt(Color.WHITE), 0, m_wFrame);
 		m_wCanvas = CanvasWidget.Cast(canvasW);
 		if (!m_wCanvas)
 		{
@@ -44,7 +56,7 @@ class MUI_RenderSurface
 		FrameSlot.SetAnchorMax(m_wCanvas, 1, 1);
 		FrameSlot.SetOffsets(m_wCanvas, 0, 0, 0, 0);
 
-		m_wTextLayer = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR, Color.FromInt(Color.WHITE), 1, m_wFrame);
+		m_wTextLayer = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, textFlags, Color.FromInt(Color.WHITE), 1, m_wFrame);
 		if (!m_wTextLayer)
 		{
 			MUI_Log.Error("Failed to create text layer");

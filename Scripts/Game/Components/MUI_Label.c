@@ -52,6 +52,13 @@ class MUI_Label : MUI_Node
 	}
 
 	//------------------------------------------------------------------------------------------------
+	void SetColor(Color color)
+	{
+		m_Style.m_Text = color;
+		InvalidatePaint();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	override void MeasureIntrinsic(float availW, float availH)
 	{
 		float w;

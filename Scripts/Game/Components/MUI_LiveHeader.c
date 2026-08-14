@@ -42,14 +42,14 @@ class MUI_LiveHeader : MUI_Node
 			return;
 
 		surface.DrawText(x, y, w * 0.62, 16, m_sKicker, MUI_Theme.FONT_SMALL, MUI_ColorUtil.Fade(MUI_Theme.Cyan, op), true, false, true, false);
-		surface.DrawText(x, y + 16, w * 0.7, 36, m_sTitle, 30, MUI_ColorUtil.Fade(MUI_Theme.Text, op), true, false, true, false);
+		surface.DrawText(x, y + 16, w * 0.7, 36, m_sTitle, MUI_Theme.FONT_TITLE, MUI_ColorUtil.Fade(MUI_Theme.Text, op), true, false, true, false);
 
 		float pulse = 0.45 + 0.55 * MUI_Ease.Pulse(GetTime(), 1.4);
 		float pillW = 78;
 		float pillH = 22;
 		float px = x + w - pillW;
 		float py = y + 6;
-		surface.FillRect(px, py, pillW, pillH, MUI_ColorUtil.Fade(MUI_Theme.Live, op * 0.16), 11);
+		surface.FillRect(px, py, pillW, pillH, MUI_ColorUtil.Fade(MUI_Theme.Live, op * 0.16), 9);
 		surface.StrokeRect(px, py, pillW, pillH, MUI_ColorUtil.Fade(MUI_Theme.Live, op * pulse), 1.2, 11);
 		surface.FillCircle(px + 12, py + pillH * 0.5, 4, MUI_ColorUtil.Fade(MUI_Theme.Live, op * pulse));
 		surface.DrawText(px + 20, py, pillW - 24, pillH, "LIVE", MUI_Theme.FONT_SMALL, MUI_ColorUtil.Fade(MUI_Theme.Live, op), true, false, true, false);

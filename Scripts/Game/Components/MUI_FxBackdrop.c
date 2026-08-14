@@ -64,7 +64,7 @@ class MUI_FxBackdrop : MUI_Node
 			m_aX.Insert(Math.RandomFloat(0, w));
 			m_aY.Insert(Math.RandomFloat(0, h));
 			m_aV.Insert(Math.RandomFloat(8, 28));
-			m_aS.Insert(Math.RandomFloat(1.2, 3.2));
+			m_aS.Insert(Math.RandomFloat(2.0, 4.0));
 			m_aPhase.Insert(Math.RandomFloat(0, Math.PI2));
 		}
 		m_bSeeded = true;

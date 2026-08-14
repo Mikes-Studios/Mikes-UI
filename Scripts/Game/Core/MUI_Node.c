@@ -364,6 +364,19 @@ class MUI_Node
 	}
 
 	//------------------------------------------------------------------------------------------------
+	void ClearChildren()
+	{
+		int i;
+		for (i = 0; i < m_aChildren.Count(); i++)
+		{
+			if (m_aChildren[i])
+				m_aChildren[i].m_Parent = null;
+		}
+		m_aChildren.Clear();
+		InvalidateLayout();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	int GetChildCount()
 	{
 		return m_aChildren.Count();
@@ -454,7 +467,20 @@ class MUI_Node
 		if (m_Style.m_fBorder > 0 && m_Style.m_Stroke && m_Style.m_Stroke.A() > 0.001)
 			surface.StrokeRect(x, y, m_World.m_fW, m_World.m_fH, MUI_ColorUtil.Fade(m_Style.m_Stroke, op), m_Style.m_fBorder, m_Style.m_fRadius);
 
+		PaintFocusRing(surface, x, y, m_World.m_fW, m_World.m_fH);
 		PaintForeground(surface);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void PaintFocusRing(MUI_RenderSurface surface, float x, float y, float w, float h)
+	{
+		float t = m_fFocusT;
+		if (t < 0.02)
+			return;
+		float op = GetDrawOpacity() * t;
+		float rad = m_Style.m_fRadius + 4;
+		surface.StrokeRect(x - 5, y - 5, w + 10, h + 10, MUI_ColorUtil.Fade(MUI_Theme.Cyan, op * 0.9), 2.2, rad);
+		surface.StrokeRect(x - 8, y - 8, w + 16, h + 16, MUI_ColorUtil.Fade(MUI_Theme.Accent, op * 0.4), 1.2, rad + 3);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -462,6 +488,8 @@ class MUI_Node
 	{
 		float hoverTarget = 0;
 		if (m_bHover)
+			hoverTarget = 1;
+		if (m_bFocused)
 			hoverTarget = 1;
 		float pressTarget = 0;
 		if (m_bPressed)

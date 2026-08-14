@@ -9,10 +9,15 @@ class MUI_Runtime
 	protected ref array<ref MUI_Node> m_aOwned;
 	protected ref MUI_InputRouter m_Input;
 	protected ref MUI_EditBridge m_Edit;
+	protected ref ScriptInvoker m_OnBack;
+	protected Widget m_wPromptRoot;
+	protected RichTextWidget m_wPromptSelect;
+	protected RichTextWidget m_wPromptBack;
 	protected TextWidget m_wMeasure;
 	protected bool m_bLayoutDirty;
 	protected bool m_bPaintDirty;
 	protected bool m_bMounted;
+	protected bool m_bInteractive;
 	protected float m_fHostW;
 	protected float m_fHostH;
 	protected float m_fTime;
@@ -24,10 +29,24 @@ class MUI_Runtime
 		m_aOwned = new array<ref MUI_Node>();
 		m_Input = new MUI_InputRouter();
 		m_Edit = new MUI_EditBridge();
+		m_OnBack = new ScriptInvoker();
 	}
 
 	//------------------------------------------------------------------------------------------------
 	bool Mount(notnull Widget host)
+	{
+		return MountInternal(host, true);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! HUD-safe mount: paint + layout only. No input router, edit bridge, or Select/Back prompts.
+	bool MountPassive(notnull Widget host)
+	{
+		return MountInternal(host, false);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected bool MountInternal(notnull Widget host, bool interactive)
 	{
 		if (m_bMounted)
 			Unmount();
@@ -41,15 +60,21 @@ class MUI_Runtime
 		}
 
 		m_RootSurface = new MUI_RenderSurface();
-		if (!m_RootSurface.Create(m_Workspace, m_wHost, 0))
+		if (!m_RootSurface.Create(m_Workspace, m_wHost, 0, !interactive))
 			return false;
 		m_RootSurface.FillHost();
 
-		m_Input.Init(this);
-		m_wHost.AddHandler(m_Input);
+		m_bInteractive = interactive;
+		if (m_bInteractive)
+		{
+			m_Input.Init(this);
+			m_wHost.AddHandler(m_Input);
 
-		if (!m_Edit.Create(m_Workspace, m_wHost))
-			return false;
+			if (!m_Edit.Create(m_Workspace, m_wHost))
+				return false;
+
+			CreatePrompts();
+		}
 
 		Widget measureW = m_Workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR, Color.FromInt(Color.WHITE), 0, m_wHost);
 		m_wMeasure = TextWidget.Cast(measureW);
@@ -64,19 +89,24 @@ class MUI_Runtime
 		m_bMounted = true;
 		m_bLayoutDirty = true;
 		m_bPaintDirty = true;
-		MUI_Log.Info("Mounted");
+		if (m_bInteractive)
+			MUI_Log.Info("Mounted");
+		else
+			MUI_Log.Info("Mounted (passive)");
 		return true;
 	}
 
 	//------------------------------------------------------------------------------------------------
 	void Unmount()
 	{
-		if (m_Input && m_wHost)
+		if (m_bInteractive && m_Input && m_wHost)
 			m_wHost.RemoveHandler(m_Input);
 		if (m_Input)
 			m_Input.Clear();
-		if (m_Edit)
+		if (m_bInteractive && m_Edit)
 			m_Edit.Destroy();
+		if (m_bInteractive)
+			DestroyPrompts();
 
 		int i;
 		for (i = 0; i < m_aClipSurfaces.Count(); i++)
@@ -100,6 +130,7 @@ class MUI_Runtime
 		m_wHost = null;
 		m_Workspace = null;
 		m_bMounted = false;
+		m_bInteractive = false;
 		MUI_Log.Info("Unmounted");
 	}
 
@@ -155,7 +186,7 @@ class MUI_Runtime
 		RefreshHostSize();
 		if (m_fHostW < 1 || m_fHostH < 1)
 			return;
-		if (m_Input)
+		if (m_bInteractive && m_Input)
 			m_Input.UpdatePointer();
 		if (m_bLayoutDirty)
 			Layout();
@@ -189,6 +220,8 @@ class MUI_Runtime
 			m_fHostH = h;
 			m_bLayoutDirty = true;
 			m_bPaintDirty = true;
+			if (m_bInteractive)
+				LayoutPrompts();
 		}
 	}
 
@@ -261,7 +294,7 @@ class MUI_Runtime
 
 		ref MUI_RenderSurface surface = new MUI_RenderSurface();
 		int z = 2 + m_aClipSurfaces.Count();
-		if (!surface.Create(m_Workspace, m_wHost, z))
+		if (!surface.Create(m_Workspace, m_wHost, z, !m_bInteractive))
 			return null;
 		surface.SetClipNode(node);
 		surface.SyncFrameToNode();
@@ -321,13 +354,133 @@ class MUI_Runtime
 	void OnFocusChanged(MUI_Node node)
 	{
 		MUI_TextField field = MUI_TextField.Cast(node);
-		if (field)
+		InputManager im = GetGame().GetInputManager();
+		bool kbm = true;
+		if (im)
+			kbm = im.IsUsingMouseAndKeyboard();
+
+		if (field && kbm)
 		{
 			m_Edit.Attach(field);
 			return;
 		}
 		if (m_Edit)
 			m_Edit.Detach();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void BeginEditing(notnull MUI_TextField field)
+	{
+		if (m_Edit)
+			m_Edit.Attach(field);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void StopEditing()
+	{
+		if (m_Edit)
+			m_Edit.Detach();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	bool IsEditing()
+	{
+		if (!m_Edit)
+			return false;
+		return m_Edit.IsAttached();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void RequestBack()
+	{
+		if (m_OnBack)
+			m_OnBack.Invoke();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	ScriptInvoker GetOnBack()
+	{
+		return m_OnBack;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void CollectFocusables(notnull array<MUI_Node> list)
+	{
+		CollectFocusablesNode(m_Root, list);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void CollectFocusablesNode(MUI_Node node, notnull array<MUI_Node> list)
+	{
+		if (!node || !node.IsVisible())
+			return;
+		if (node.AcceptsClick())
+			list.Insert(node);
+		int count = node.GetChildCount();
+		int i;
+		for (i = 0; i < count; i++)
+			CollectFocusablesNode(node.GetChild(i), list);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void CreatePrompts()
+	{
+		if (!m_Workspace || !m_wHost)
+			return;
+
+		m_wPromptRoot = m_Workspace.CreateWidget(WidgetType.FrameWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR, Color.FromInt(Color.WHITE), 80, m_wHost);
+		if (!m_wPromptRoot)
+			return;
+		FrameSlot.SetAnchorMin(m_wPromptRoot, 0.5, 1);
+		FrameSlot.SetAnchorMax(m_wPromptRoot, 0.5, 1);
+		FrameSlot.SetAlignment(m_wPromptRoot, 0.5, 1);
+		FrameSlot.SetPos(m_wPromptRoot, 0, -18);
+		FrameSlot.SetSize(m_wPromptRoot, 420, 40);
+
+		Widget selW = m_Workspace.CreateWidget(WidgetType.RichTextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.CENTER | WidgetFlags.VCENTER, Color.FromInt(Color.WHITE), 0, m_wPromptRoot);
+		m_wPromptSelect = RichTextWidget.Cast(selW);
+		Widget backW = m_Workspace.CreateWidget(WidgetType.RichTextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.CENTER | WidgetFlags.VCENTER, Color.FromInt(Color.WHITE), 0, m_wPromptRoot);
+		m_wPromptBack = RichTextWidget.Cast(backW);
+
+		StylePrompt(m_wPromptSelect, "<action name='MenuSelect' scale='1.35'/>  Select");
+		StylePrompt(m_wPromptBack, "<action name='MenuBack' scale='1.35'/>  Back");
+		LayoutPrompts();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void StylePrompt(RichTextWidget tw, string text)
+	{
+		if (!tw)
+			return;
+		tw.SetFont(MUI_Theme.FONT_BOLD);
+		tw.SetExactFontSize(MUI_Theme.FONT_BODY);
+		tw.SetDesiredFontSize(MUI_Theme.FONT_BODY);
+		tw.SetSharpness(0.35);
+		tw.SetOutline(1, 0xB0141410);
+		tw.SetShadow(2, 0xA0000000, 1, 0, 1);
+		tw.SetColor(MUI_Theme.Text);
+		tw.SetText(text);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void LayoutPrompts()
+	{
+		if (!m_wPromptSelect || !m_wPromptBack)
+			return;
+		FrameSlot.SetPos(m_wPromptSelect, 20, 4);
+		FrameSlot.SetSize(m_wPromptSelect, 180, 32);
+		FrameSlot.SetPos(m_wPromptBack, 220, 4);
+		FrameSlot.SetSize(m_wPromptBack, 180, 32);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void DestroyPrompts()
+	{
+		if (m_wPromptRoot)
+			m_wPromptRoot.RemoveFromHierarchy();
+		m_wPromptRoot = null;
+		m_wPromptSelect = null;
+		m_wPromptBack = null;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -342,6 +495,9 @@ class MUI_Runtime
 		else
 			m_wMeasure.SetFont(MUI_Theme.FONT_REGULAR);
 		m_wMeasure.SetExactFontSize(fontSize);
+		m_wMeasure.SetDesiredFontSize(fontSize);
+		m_wMeasure.SetMinFontSize(fontSize);
+		m_wMeasure.SetSharpness(0.35);
 		m_wMeasure.SetText(text);
 		if (wrapWidth > 0)
 		{

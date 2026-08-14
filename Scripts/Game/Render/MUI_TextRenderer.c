@@ -84,9 +84,13 @@ class MUI_TextRenderer
 			MUI_TextItem item = m_aItems[i];
 			tw.SetVisible(true);
 			tw.SetText(item.m_sText);
+			tw.SetDesiredFontSize(item.m_iFontSize);
+			tw.SetMinFontSize(item.m_iFontSize);
 			tw.SetExactFontSize(item.m_iFontSize);
+			tw.SetSharpness(0.35);
+			tw.SetOutline(1, 0xB0141410);
+			tw.SetShadow(2, 0xA0000000, 1, 0, 1);
 			tw.SetColorInt(item.m_iColor);
-			tw.SetBold(item.m_bBold);
 			tw.SetTextWrapping(item.m_bWrap);
 
 			int flags = WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR;
@@ -103,10 +107,11 @@ class MUI_TextRenderer
 				tw.SetFont(MUI_Theme.FONT_BOLD);
 			else
 				tw.SetFont(MUI_Theme.FONT_REGULAR);
+			tw.SetBold(false);
 
 			FrameSlot.SetAnchorMin(tw, 0, 0);
 			FrameSlot.SetAnchorMax(tw, 0, 0);
-			FrameSlot.SetPos(tw, item.m_fX, item.m_fY);
+			FrameSlot.SetPos(tw, Math.Round(item.m_fX), Math.Round(item.m_fY));
 			FrameSlot.SetSize(tw, item.m_fW, item.m_fH);
 			FrameSlot.SetSizeToContent(tw, false);
 		}
@@ -125,6 +130,9 @@ class MUI_TextRenderer
 				return;
 			}
 			tw.SetFont(MUI_Theme.FONT_REGULAR);
+			tw.SetSharpness(0.35);
+			tw.SetOutline(1, 0xB0141410);
+			tw.SetShadow(2, 0xA0000000, 1, 0, 1);
 			m_aPool.Insert(tw);
 		}
 	}

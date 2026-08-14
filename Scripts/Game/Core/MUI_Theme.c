@@ -4,9 +4,9 @@ class MUI_Theme
 	static const string FONT_REGULAR = "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt";
 	static const string FONT_BOLD = "{EABA4FE9D014CCEF}UI/Fonts/RobotoCondensed/RobotoCondensed_Bold.fnt";
 
-	static const int FONT_TITLE = 28;
-	static const int FONT_BODY = 18;
-	static const int FONT_SMALL = 14;
+	static const int FONT_TITLE = 32;
+	static const int FONT_BODY = 20;
+	static const int FONT_SMALL = 16;
 
 	static const ref Color Overlay = new Color(0.02, 0.03, 0.04, 0.72);
 	static const ref Color Panel = new Color(0.09, 0.12, 0.14, 0.97);

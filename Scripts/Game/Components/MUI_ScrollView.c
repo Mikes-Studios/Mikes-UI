@@ -32,7 +32,7 @@ class MUI_ScrollView : MUI_Node
 		float trackX = DrawX() + m_World.m_fW - trackW - 2;
 		float trackY = DrawY() + 4;
 		float trackH = m_World.m_fH - 8;
-		surface.FillRect(trackX, trackY, trackW, trackH, MUI_ColorUtil.Fade(MUI_Theme.Field, op), 2);
+		surface.FillRect(trackX, trackY, trackW, trackH, MUI_ColorUtil.Fade(MUI_Theme.Field, op), 0);
 
 		float thumbH = trackH * (innerH / m_fContentH);
 		if (thumbH < 18)
@@ -42,6 +42,6 @@ class MUI_ScrollView : MUI_Node
 		if (maxScroll > 0)
 			t = m_fScrollY / maxScroll;
 		float thumbY = trackY + (trackH - thumbH) * t;
-		surface.FillRect(trackX, thumbY, trackW, thumbH, MUI_ColorUtil.Fade(MUI_Theme.Accent, op), 2);
+		surface.FillRect(trackX, thumbY, trackW, thumbH, MUI_ColorUtil.Fade(MUI_Theme.Accent, op), 0);
 	}
 }

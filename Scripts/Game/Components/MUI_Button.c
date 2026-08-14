@@ -62,6 +62,18 @@ class MUI_Button : MUI_Node
 	}
 
 	//------------------------------------------------------------------------------------------------
+	void MakeDefault()
+	{
+		m_bAccent = false;
+		m_bDanger = false;
+		m_Style.m_Fill = MUI_Theme.Button;
+		m_Style.m_FillHover = MUI_Theme.ButtonHover;
+		m_Style.m_FillPress = MUI_Theme.ButtonPress;
+		m_Style.m_Text = MUI_Theme.Text;
+		InvalidatePaint();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	ScriptInvoker GetOnClicked()
 	{
 		return m_OnClicked;
@@ -111,6 +123,7 @@ class MUI_Button : MUI_Node
 
 		surface.FillRect(x, y, w, h, MUI_ColorUtil.Fade(fill, op), 10);
 		surface.StrokeRect(x, y, w, h, MUI_ColorUtil.Fade(MUI_Theme.Sheen, op * (0.15 + hover * 0.4)), 1.2, 10);
+		PaintFocusRing(surface, x, y, w, h);
 
 		float sheen = MUI_Ease.Fract(GetTime() * 0.55 + hover);
 		float sx = x + sheen * (w + 40) - 30;

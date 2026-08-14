@@ -83,14 +83,14 @@ class MUI_Toggle : MUI_Node
 		float ty = y + (h - trackH) * 0.5;
 		float t = m_fCheckT;
 		MUI_ColorUtil.Mix(MUI_Theme.ToggleOff, MUI_Theme.ToggleOn, t, m_Mix);
-		surface.FillRect(tx, ty, trackW, trackH, MUI_ColorUtil.Fade(m_Mix, op), 12);
+		surface.FillRect(tx, ty, trackW, trackH, MUI_ColorUtil.Fade(m_Mix, op), 10);
 		surface.StrokeRect(tx, ty, trackW, trackH, MUI_ColorUtil.Fade(MUI_Theme.Border, op * (0.5 + t * 0.5)), 1.3, 12);
 
 		float knob = 18;
 		float kx = tx + 3 + t * (trackW - knob - 6);
 		float ky = ty + (trackH - knob) * 0.5;
 		surface.FillCircle(kx + knob * 0.5, ky + knob * 0.5, 11 + GetHoverT() * 1.5, MUI_ColorUtil.Fade(MUI_Theme.Glow, op * t * 0.65));
-		surface.FillRect(kx, ky, knob, knob, MUI_ColorUtil.Fade(MUI_Theme.Text, op), 9);
+		surface.FillRect(kx, ky, knob, knob, MUI_ColorUtil.Fade(MUI_Theme.Text, op), 7);
 
 		float lx = tx + trackW + 14;
 		float lw = m_World.m_fW - trackW - 14;

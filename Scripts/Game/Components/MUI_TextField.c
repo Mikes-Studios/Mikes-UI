@@ -81,7 +81,7 @@ class MUI_TextField : MUI_Node
 			surface.FillRect(x - 3, boxY - 3, w + 6, boxH + 6, MUI_ColorUtil.Fade(MUI_Theme.Glow, op * focus * 0.45), 10);
 
 		surface.FillRect(x, boxY, w, boxH, MUI_ColorUtil.Fade(MUI_Theme.Field, op), 8);
-		surface.FillRect(x, boxY, 3, boxH, MUI_ColorUtil.Fade(MUI_Theme.Accent, op * (0.25 + focus * 0.75)), 2);
+		surface.FillRect(x, boxY, 3, boxH, MUI_ColorUtil.Fade(MUI_Theme.Accent, op * (0.25 + focus * 0.75)), 0);
 
 		Color stroke = MUI_Theme.Border;
 		if (focus > 0.5)
