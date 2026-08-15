@@ -1,7 +1,11 @@
 //------------------------------------------------------------------------------------------------
-//! Theme colors are stored in **linear** RGB (Enfusion Color space).
-//! Author with Color.FromSRGBA(r,g,b,a) — sRGB bytes — never `new Color(sRGB floats)`.
-//! Canvas / TextWidget ints come from PackToInt(), which encodes linear → packed sRGB ARGB.
+//! Static uplink palette tokens. Convenience for one-off SetColor(MUI_Theme.Danger).
+//!
+//! Consumer:
+//!   Prefer runtime.SetTheme(MUI_ThemeData.CreateUplink()) for full restyle.
+//!   Built-in controls paint via node.GetTheme(), not these statics.
+//!   Author colors with Color.FromSRGBA(r,g,b,a). Never new Color(sRGB floats).
+//------------------------------------------------------------------------------------------------
 class MUI_Theme
 {
 	static const string FONT_REGULAR = "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt";

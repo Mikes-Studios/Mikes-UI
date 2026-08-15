@@ -1,4 +1,15 @@
 //------------------------------------------------------------------------------------------------
+//! Horizontal stack. Children share leftover width via Fill/Grow.
+//!
+//! Consumer:
+//!   MUI_Row row = runtime.CreateRow("buttons");
+//!   row.SetGap(12);
+//!   row.AddChild(saveBtn); row.AddChild(closeBtn);
+//!
+//! Layout:
+//!   Fill width, Hug height. Buttons keep Hug width + Grow 1. Labels that should flex:
+//!   SetFillWidth + SetGrow(1).
+//------------------------------------------------------------------------------------------------
 class MUI_Row : MUI_Node
 {
 	//------------------------------------------------------------------------------------------------

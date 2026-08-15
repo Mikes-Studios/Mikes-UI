@@ -1,4 +1,15 @@
 //------------------------------------------------------------------------------------------------
+//! Per-node layout + paint fields. Get via node.GetStyle(). Prefer node setters
+//! (SetPadding, SetFill, SetGap, …) so layout invalidates.
+//!
+//! Consumer:
+//!   card.SetPaddingTRBL(22, 28, 24, 28);  // not style.m_fPadT = 22 without InvalidateLayout
+//!   overlay.GetStyle().m_Fill = Color.FromInt(0); // OK if you then InvalidatePaint — setters safer
+//!
+//! Fields: m_Layout (Overlay / StackVertical / StackHorizontal),
+//!   m_WidthMode / m_HeightMode (Fill, Hug, Exact), m_fGrow, m_fAlignX/Y (0..1),
+//!   m_bInteractive (click; gamepad focus unless WantsFocus is overridden), m_bBlockHit (eats hits, not a focus target).
+//------------------------------------------------------------------------------------------------
 class MUI_Style
 {
 	MUI_LayoutKind m_Layout = MUI_LayoutKind.StackVertical;

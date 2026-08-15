@@ -1,4 +1,6 @@
 //------------------------------------------------------------------------------------------------
+//! Print wrapper prefixed [MUI]. Consumer addons should Print their own tag, not this.
+//------------------------------------------------------------------------------------------------
 class MUI_Log
 {
 	protected static const string PREFIX = "[MUI]";

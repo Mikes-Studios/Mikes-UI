@@ -1,4 +1,14 @@
 //------------------------------------------------------------------------------------------------
+//! Clipped vertical stack with mouse-wheel scroll and a paint-time scrollbar.
+//!
+//! Consumer:
+//!   MUI_ScrollView s = runtime.CreateScrollView("list");
+//!   s.SetViewportHeight(420);      // exact, stable parent size — prefer for lists
+//!   s.SetMaxViewportHeight(420);   // hug until max, then scroll
+//!
+//! Layout:
+//!   Default Hug height + clip. Prefer SetViewportHeight for long data.
+//------------------------------------------------------------------------------------------------
 class MUI_ScrollView : MUI_Node
 {
 	//------------------------------------------------------------------------------------------------
@@ -14,7 +24,6 @@ class MUI_ScrollView : MUI_Node
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Fixed viewport height. Prefer this for lists so content never grows the parent card.
 	void SetViewportHeight(float height)
 	{
 		if (height < 1)
@@ -27,8 +36,6 @@ class MUI_ScrollView : MUI_Node
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Hug content height up to maxHeight, then scroll. Use SetViewportHeight when the parent
-	//! should keep a stable size (leaderboards, long forms).
 	void SetMaxViewportHeight(float maxHeight)
 	{
 		if (maxHeight < 1)
@@ -54,9 +61,9 @@ class MUI_ScrollView : MUI_Node
 		if (op < 0.01)
 			return;
 
-		// Subtle well so clipped content reads as a bounded viewport.
-		surface.FillRect(x, y, m_World.m_fW, m_World.m_fH, MUI_ColorUtil.Fade(MUI_Theme.Field, op * 0.55), 8);
-		surface.StrokeRect(x, y, m_World.m_fW, m_World.m_fH, MUI_ColorUtil.Fade(MUI_Theme.Border, op * 0.7), 1.0, 8);
+		MUI_ThemeData theme = GetTheme();
+		surface.FillRect(x, y, m_World.m_fW, m_World.m_fH, MUI_ColorUtil.Fade(theme.Field, op * 0.55), 8);
+		surface.StrokeRect(x, y, m_World.m_fW, m_World.m_fH, MUI_ColorUtil.Fade(theme.Border, op * 0.7), 1.0, 8);
 		PaintForeground(surface);
 	}
 
@@ -67,12 +74,13 @@ class MUI_ScrollView : MUI_Node
 		if (m_fContentH <= innerH + 1)
 			return;
 
+		MUI_ThemeData theme = GetTheme();
 		float op = GetDrawOpacity();
 		float trackW = 4;
 		float trackX = DrawX() + m_World.m_fW - trackW - 2;
 		float trackY = DrawY() + 4;
 		float trackH = m_World.m_fH - 8;
-		surface.FillRect(trackX, trackY, trackW, trackH, MUI_ColorUtil.Fade(MUI_Theme.Field, op), 0);
+		surface.FillRect(trackX, trackY, trackW, trackH, MUI_ColorUtil.Fade(theme.Field, op), 0);
 
 		float thumbH = trackH * (innerH / m_fContentH);
 		if (thumbH < 18)
@@ -82,6 +90,6 @@ class MUI_ScrollView : MUI_Node
 		if (maxScroll > 0)
 			t = m_fScrollY / maxScroll;
 		float thumbY = trackY + (trackH - thumbH) * t;
-		surface.FillRect(trackX, thumbY, trackW, thumbH, MUI_ColorUtil.Fade(MUI_Theme.Accent, op), 0);
+		surface.FillRect(trackX, thumbY, trackW, thumbH, MUI_ColorUtil.Fade(theme.Accent, op), 0);
 	}
 }

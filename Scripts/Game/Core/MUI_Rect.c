@@ -1,4 +1,7 @@
 //------------------------------------------------------------------------------------------------
+//! Axis-aligned box in layout (unscaled) pixels. Nodes store world bounds here.
+//! Contains() is inclusive on the max edge. Used by hit-test and clip culling.
+//------------------------------------------------------------------------------------------------
 class MUI_Rect
 {
 	float m_fX;

@@ -1,4 +1,13 @@
 //------------------------------------------------------------------------------------------------
+//! Title + kicker + LIVE pill + T+ clock. Visual identity, not a generic heading.
+//!
+//! Consumer:
+//!   MUI_LiveHeader h = runtime.CreateLiveHeader("ADMIN CONFIG", "header");
+//!   h.SetKicker("COMMAND UPLINK  //  SECTOR IA");
+//!
+//! Layout:
+//!   Fill width, Exact height 58. For a plain title use MUI_Label instead.
+//------------------------------------------------------------------------------------------------
 class MUI_LiveHeader : MUI_Node
 {
 	protected string m_sKicker;
@@ -41,22 +50,23 @@ class MUI_LiveHeader : MUI_Node
 		if (op < 0.01)
 			return;
 
-		surface.DrawText(x, y, w * 0.62, 16, m_sKicker, MUI_Theme.FONT_SMALL, MUI_ColorUtil.Fade(MUI_Theme.Cyan, op), true, false, true, false);
-		surface.DrawText(x, y + 16, w * 0.7, 36, m_sTitle, MUI_Theme.FONT_TITLE, MUI_ColorUtil.Fade(MUI_Theme.Text, op), true, false, true, false);
+		MUI_ThemeData theme = GetTheme();
+		surface.DrawText(x, y, w * 0.62, 16, m_sKicker, theme.FONT_SMALL, MUI_ColorUtil.Fade(theme.Cyan, op), true, false, true, false);
+		surface.DrawText(x, y + 16, w * 0.7, 36, m_sTitle, theme.FONT_TITLE, MUI_ColorUtil.Fade(theme.Text, op), true, false, true, false);
 
 		float pulse = 0.45 + 0.55 * MUI_Ease.Pulse(GetTime(), 1.4);
 		float pillW = 78;
 		float pillH = 22;
 		float px = x + w - pillW;
 		float py = y + 6;
-		surface.FillRect(px, py, pillW, pillH, MUI_ColorUtil.Fade(MUI_Theme.Live, op * 0.16), 9);
-		surface.StrokeRect(px, py, pillW, pillH, MUI_ColorUtil.Fade(MUI_Theme.Live, op * pulse), 1.2, 11);
-		surface.FillCircle(px + 12, py + pillH * 0.5, 4, MUI_ColorUtil.Fade(MUI_Theme.Live, op * pulse));
-		surface.DrawText(px + 20, py, pillW - 24, pillH, "LIVE", MUI_Theme.FONT_SMALL, MUI_ColorUtil.Fade(MUI_Theme.Live, op), true, false, true, false);
+		surface.FillRect(px, py, pillW, pillH, MUI_ColorUtil.Fade(theme.Live, op * 0.16), 9);
+		surface.StrokeRect(px, py, pillW, pillH, MUI_ColorUtil.Fade(theme.Live, op * pulse), 1.2, 11);
+		surface.FillCircle(px + 12, py + pillH * 0.5, 4, MUI_ColorUtil.Fade(theme.Live, op * pulse));
+		surface.DrawText(px + 20, py, pillW - 24, pillH, "LIVE", theme.FONT_SMALL, MUI_ColorUtil.Fade(theme.Live, op), true, false, true, false);
 
 		float tNow = GetTime();
 		int secs = tNow;
 		string clock = "T+" + secs.ToString();
-		surface.DrawText(x + w - 90, y + 30, 90, 20, clock, MUI_Theme.FONT_SMALL, MUI_ColorUtil.Fade(MUI_Theme.TextMuted, op), false, false, true, false);
+		surface.DrawText(x + w - 90, y + 30, 90, 20, clock, theme.FONT_SMALL, MUI_ColorUtil.Fade(theme.TextMuted, op), false, false, true, false);
 	}
 }

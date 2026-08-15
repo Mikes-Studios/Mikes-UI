@@ -1,4 +1,16 @@
 //------------------------------------------------------------------------------------------------
+//! Mouse + gamepad routing for one mounted MUI_Runtime. Created by Mount(), skipped by
+//! MountPassive() (HUD).
+//!
+//! Consumer:
+//!   Do not create this. Activate MenuWithEditorContext each tick (MUI_MenuHost does).
+//!   Back: StopEditing first, else GetOnBack(). Select: WantsTextInput -> BeginEditing,
+//!   else HandleActivate. Left/right: HandleNavAxis, else move focus in-row.
+//!
+//! Extend:
+//!   Custom widgets hook input via MUI_Node.WantsTextInput / HandleNavAxis / HandleActivate.
+//!   Do not edit this router to special-case your class.
+//------------------------------------------------------------------------------------------------
 class MUI_InputRouter : ScriptedWidgetEventHandler
 {
 	protected MUI_Runtime m_Runtime;
@@ -90,7 +102,11 @@ class MUI_InputRouter : ScriptedWidgetEventHandler
 		if (m_Focused)
 			m_Focused.SetFocused(true);
 		if (m_Runtime)
+		{
 			m_Runtime.OnFocusChanged(m_Focused);
+			if (m_Focused)
+				m_Runtime.EnsureNodeVisible(m_Focused);
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -116,6 +132,9 @@ class MUI_InputRouter : ScriptedWidgetEventHandler
 		float ly;
 		if (!m_Runtime.GetLocalPointer(lx, ly))
 			return;
+
+		if (m_bDown && m_Pressed)
+			m_Pressed.OnDrag(lx, ly);
 
 		MUI_Node hit = m_Runtime.HitTest(lx, ly);
 		if (hit != m_Hover)
@@ -167,7 +186,10 @@ class MUI_InputRouter : ScriptedWidgetEventHandler
 		MUI_Node hit = m_Runtime.HitTest(lx, ly);
 
 		if (m_Pressed)
+		{
+			m_Pressed.OnDragEnd(lx, ly);
 			m_Pressed.SetPressed(false);
+		}
 
 		if (m_bDown && m_Pressed && hit == m_Pressed && m_Pressed.AcceptsClick())
 		{
@@ -203,19 +225,23 @@ class MUI_InputRouter : ScriptedWidgetEventHandler
 	//------------------------------------------------------------------------------------------------
 	void OnNavUp()
 	{
+		if (TryNavAxis(0, -1))
+			return;
 		MoveFocus(0, -1);
 	}
 
 	//------------------------------------------------------------------------------------------------
 	void OnNavDown()
 	{
+		if (TryNavAxis(0, 1))
+			return;
 		MoveFocus(0, 1);
 	}
 
 	//------------------------------------------------------------------------------------------------
 	void OnNavLeft()
 	{
-		if (TryToggleHorizontal())
+		if (TryNavAxis(-1, 0))
 			return;
 		MoveFocus(-1, 0);
 	}
@@ -223,7 +249,7 @@ class MUI_InputRouter : ScriptedWidgetEventHandler
 	//------------------------------------------------------------------------------------------------
 	void OnNavRight()
 	{
-		if (TryToggleHorizontal())
+		if (TryNavAxis(1, 0))
 			return;
 		MoveFocus(1, 0);
 	}
@@ -233,11 +259,10 @@ class MUI_InputRouter : ScriptedWidgetEventHandler
 	{
 		if (!EnsureFocus())
 			return;
-		MUI_TextField field = MUI_TextField.Cast(m_Focused);
-		if (field)
+		if (m_Focused && m_Focused.WantsTextInput())
 		{
 			if (m_Runtime)
-				m_Runtime.BeginEditing(field);
+				m_Runtime.BeginEditing(m_Focused);
 			return;
 		}
 		if (m_Focused)
@@ -257,15 +282,11 @@ class MUI_InputRouter : ScriptedWidgetEventHandler
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected bool TryToggleHorizontal()
+	protected bool TryNavAxis(int dirX, int dirY)
 	{
 		if (!m_Focused)
 			return false;
-		MUI_Toggle tog = MUI_Toggle.Cast(m_Focused);
-		if (!tog)
-			return false;
-		tog.HandleActivate();
-		return true;
+		return m_Focused.HandleNavAxis(dirX, dirY);
 	}
 
 	//------------------------------------------------------------------------------------------------

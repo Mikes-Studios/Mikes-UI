@@ -1,4 +1,7 @@
 //------------------------------------------------------------------------------------------------
+//! Accent / muted / cyan divider. Fill width, Exact height 12.
+//! Consumer: runtime.CreateHairline("lineA"); parent.AddChild(line);
+//------------------------------------------------------------------------------------------------
 class MUI_Hairline : MUI_Node
 {
 	//------------------------------------------------------------------------------------------------
@@ -20,8 +23,9 @@ class MUI_Hairline : MUI_Node
 		float op = GetDrawOpacity();
 		if (op < 0.01)
 			return;
-		surface.DrawLine(x, y, x + w * 0.08, y, MUI_ColorUtil.Fade(MUI_Theme.Accent, op), 1.5);
-		surface.DrawLine(x + w * 0.08, y, x + w * 0.92, y, MUI_ColorUtil.Fade(MUI_Theme.Border, op * 0.7), 1);
-		surface.DrawLine(x + w * 0.92, y, x + w, y, MUI_ColorUtil.Fade(MUI_Theme.Cyan, op), 1.5);
+		MUI_ThemeData theme = GetTheme();
+		surface.DrawLine(x, y, x + w * 0.08, y, MUI_ColorUtil.Fade(theme.Accent, op), 1.5);
+		surface.DrawLine(x + w * 0.08, y, x + w * 0.92, y, MUI_ColorUtil.Fade(theme.Border, op * 0.7), 1);
+		surface.DrawLine(x + w * 0.92, y, x + w, y, MUI_ColorUtil.Fade(theme.Cyan, op), 1.5);
 	}
 }

@@ -1,4 +1,27 @@
 //------------------------------------------------------------------------------------------------
+//! Scene-graph node. Every control is a MUI_Node. Consumers almost never `new` this
+//! directly — use MUI_Runtime factories, or subclass and runtime.Adopt(node).
+//!
+//! Consumer:
+//!   Store every node you keep as `protected ref MUI_Button m_save;` (or local `ref`).
+//!   Parent with parent.AddChild(child). Rebuild lists with ClearChildren().
+//!   Size: SetWidth/SetHeight (Exact), SetFillWidth/SetFillHeight, SetHugWidth/SetHugHeight.
+//!   SetPadding, SetPaddingTRBL, SetGap, SetAlign(ax, ay), SetGrow, SetRadius, SetFill.
+//!   Intro: SetIntro(delay, duration, fromY). Paint must use DrawX/DrawY/GetDrawOpacity().
+//!
+//! Layout:
+//!   Default Fill width, Hug height, StackVertical. Overlay children use SetAlign(0.5, 0.5)
+//!   to center. Main-axis Fill is measured as Hug then shares leftover via m_fGrow
+//!   (Fill + grow 0 counts as flex 1). Do not SetFillWidth on buttons in a row.
+//!
+//! Extend:
+//!   Subclass, set size modes in constructor (parent MUI_Node() runs first, m_Style exists).
+//!   Override MeasureIntrinsic (Hug), Paint or PaintForeground, OnClicked, OnTick.
+//!   Interactive: m_Style.m_bInteractive = true. Text input: override WantsTextInput,
+//!   GetEditText, SetEditTextFromBridge, CommitEdit. D-pad left/right: override HandleNavAxis.
+//!   Host widgets (blur, image): override SyncHostWidgets / DestroyHostWidgets.
+//!   Overlay catchers that click but must not take d-pad: override WantsFocus to false.
+//------------------------------------------------------------------------------------------------
 class MUI_Node
 {
 	string m_sName;
@@ -7,6 +30,7 @@ class MUI_Node
 	protected MUI_Node m_Parent;
 	protected MUI_Runtime m_Runtime;
 	protected ref MUI_Rect m_World;
+	protected static ref MUI_ThemeData s_FallbackTheme;
 
 	protected float m_fDesiredW;
 	protected float m_fDesiredH;
@@ -67,6 +91,23 @@ class MUI_Node
 	MUI_Runtime GetRuntime()
 	{
 		return m_Runtime;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Theme for paint / ApplyTheme. Falls back to a retained uplink singleton.
+	MUI_ThemeData GetTheme()
+	{
+		if (m_Runtime)
+			return m_Runtime.GetTheme();
+		if (!s_FallbackTheme)
+			s_FallbackTheme = MUI_ThemeData.CreateUplink();
+		return s_FallbackTheme;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Called by Runtime Create*/Adopt. Override to copy theme fills/fonts into m_Style.
+	void ApplyTheme(notnull MUI_ThemeData theme)
+	{
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -218,6 +259,13 @@ class MUI_Node
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Gamepad focus target. Default matches AcceptsClick. Overlay catchers click but do not steal d-pad.
+	bool WantsFocus()
+	{
+		return AcceptsClick();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void SetLayout(MUI_LayoutKind layout)
 	{
 		m_Style.m_Layout = layout;
@@ -287,6 +335,35 @@ class MUI_Node
 	{
 		m_Style.SetPadding(value);
 		InvalidateLayout();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void SetPaddingTRBL(float top, float right, float bottom, float left)
+	{
+		m_Style.SetPaddingTRBL(top, right, bottom, left);
+		InvalidateLayout();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void SetMinWidth(float minWidth)
+	{
+		m_Style.m_fMinWidth = minWidth;
+		InvalidateLayout();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void SetMaxWidth(float maxWidth)
+	{
+		m_Style.m_fMaxWidth = maxWidth;
+		InvalidateLayout();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void SetStroke(Color color, float width)
+	{
+		m_Style.m_Stroke = color;
+		m_Style.m_fBorder = width;
+		InvalidatePaint();
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -414,12 +491,32 @@ class MUI_Node
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Insert as first child (lower z in Overlay). Used by Dropdown catcher.
+	void AddChildFirst(MUI_Node child)
+	{
+		if (!child)
+		{
+			MUI_Log.Error("AddChildFirst ignored a null node");
+			return;
+		}
+
+		if (child.m_Parent)
+			child.m_Parent.RemoveChild(child);
+
+		child.m_Parent = this;
+		child.SetRuntime(m_Runtime);
+		m_aChildren.InsertAt(child, 0);
+		InvalidateLayout();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void RemoveChild(notnull MUI_Node child)
 	{
 		int index = m_aChildren.Find(child);
 		if (index < 0)
 			return;
-		m_aChildren.Remove(index);
+		// Remove() is unordered (swap-with-last) and would scramble sibling z-order.
+		m_aChildren.RemoveOrdered(index);
 		child.m_Parent = null;
 		InvalidateLayout();
 	}
@@ -540,8 +637,9 @@ class MUI_Node
 			return;
 		float op = GetDrawOpacity() * t;
 		float rad = m_Style.m_fRadius + 4;
-		surface.StrokeRect(x - 5, y - 5, w + 10, h + 10, MUI_ColorUtil.Fade(MUI_Theme.Cyan, op * 0.9), 2.2, rad);
-		surface.StrokeRect(x - 8, y - 8, w + 16, h + 16, MUI_ColorUtil.Fade(MUI_Theme.Accent, op * 0.4), 1.2, rad + 3);
+		MUI_ThemeData theme = GetTheme();
+		surface.StrokeRect(x - 5, y - 5, w + 10, h + 10, MUI_ColorUtil.Fade(theme.Cyan, op * 0.9), 2.2, rad);
+		surface.StrokeRect(x - 8, y - 8, w + 16, h + 16, MUI_ColorUtil.Fade(theme.Accent, op * 0.4), 1.2, rad + 3);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -708,6 +806,16 @@ class MUI_Node
 	}
 
 	//------------------------------------------------------------------------------------------------
+	void OnDrag(float x, float y)
+	{
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void OnDragEnd(float x, float y)
+	{
+	}
+
+	//------------------------------------------------------------------------------------------------
 	bool HandleActivate()
 	{
 		if (!AcceptsClick())
@@ -715,5 +823,37 @@ class MUI_Node
 		PlayRipple();
 		OnClicked();
 		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! True if this node should attach the hidden EditBox (IME / console VK).
+	bool WantsTextInput()
+	{
+		return false;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	string GetEditText()
+	{
+		return "";
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void SetEditTextFromBridge(string text)
+	{
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Called when the EditBox commits (write-mode leave / detach). Default no-op.
+	void CommitEdit()
+	{
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Consume gamepad left/right/up/down instead of moving focus. Return true if handled.
+	//! dirX/dirY are -1, 0, or 1.
+	bool HandleNavAxis(int dirX, int dirY)
+	{
+		return false;
 	}
 }

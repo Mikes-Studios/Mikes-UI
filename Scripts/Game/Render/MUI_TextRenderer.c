@@ -1,4 +1,7 @@
 //------------------------------------------------------------------------------------------------
+//! Pooled TextWidgets for bitmap .fnt (Roboto Condensed). Internal — DrawText on the surface.
+//! Sizes: MUI_Theme.FONT_TITLE 32, FONT_BODY 20, FONT_SMALL 16. Bold = bold font file, not SetBold.
+//------------------------------------------------------------------------------------------------
 class MUI_TextItem
 {
 	float m_fX;
@@ -15,18 +18,23 @@ class MUI_TextItem
 }
 
 //------------------------------------------------------------------------------------------------
+//! Internal text pool. Consumers call surface.DrawText, not this class.
 class MUI_TextRenderer
 {
 	protected ref array<ref MUI_TextItem> m_aItems;
 	protected ref array<TextWidget> m_aPool;
 	protected Widget m_wLayer;
 	protected WorkspaceWidget m_Workspace;
+	protected string m_sFontRegular;
+	protected string m_sFontBold;
 
 	//------------------------------------------------------------------------------------------------
 	void MUI_TextRenderer()
 	{
 		m_aItems = new array<ref MUI_TextItem>();
 		m_aPool = new array<TextWidget>();
+		m_sFontRegular = MUI_Theme.FONT_REGULAR;
+		m_sFontBold = MUI_Theme.FONT_BOLD;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -34,6 +42,17 @@ class MUI_TextRenderer
 	{
 		m_Workspace = workspace;
 		m_wLayer = layer;
+		m_sFontRegular = MUI_Theme.FONT_REGULAR;
+		m_sFontBold = MUI_Theme.FONT_BOLD;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void SetFonts(string regular, string bold)
+	{
+		if (regular != "")
+			m_sFontRegular = regular;
+		if (bold != "")
+			m_sFontBold = bold;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -77,13 +96,14 @@ class MUI_TextRenderer
 			TextWidget tw = m_aPool[i];
 			if (i >= needed)
 			{
+				MUI_TextUtil.SetLiteral(tw, " ");
 				tw.SetVisible(false);
 				continue;
 			}
 
 			MUI_TextItem item = m_aItems[i];
 			tw.SetVisible(true);
-			tw.SetText(item.m_sText);
+			MUI_TextUtil.SetLiteral(tw, item.m_sText);
 			tw.SetDesiredFontSize(item.m_iFontSize);
 			tw.SetMinFontSize(item.m_iFontSize);
 			tw.SetExactFontSize(item.m_iFontSize);
@@ -104,9 +124,9 @@ class MUI_TextRenderer
 			tw.SetFlags(flags);
 
 			if (item.m_bBold)
-				tw.SetFont(MUI_Theme.FONT_BOLD);
+				tw.SetFont(m_sFontBold);
 			else
-				tw.SetFont(MUI_Theme.FONT_REGULAR);
+				tw.SetFont(m_sFontRegular);
 			tw.SetBold(false);
 
 			FrameSlot.SetAnchorMin(tw, 0, 0);
@@ -129,10 +149,12 @@ class MUI_TextRenderer
 				MUI_Log.Error("Failed to create TextWidget for pool");
 				return;
 			}
-			tw.SetFont(MUI_Theme.FONT_REGULAR);
+			tw.SetFont(m_sFontRegular);
 			tw.SetSharpness(0.35);
 			tw.SetOutline(1, 0xB0141410);
 			tw.SetShadow(2, 0xA0000000, 1, 0, 1);
+			MUI_TextUtil.SetLiteral(tw, " ");
+			tw.SetVisible(false);
 			m_aPool.Insert(tw);
 		}
 	}

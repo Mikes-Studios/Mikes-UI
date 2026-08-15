@@ -1,4 +1,25 @@
 //------------------------------------------------------------------------------------------------
+//! Compositor instance. One per menu or HUD overlay. Owns surfaces, input, edit bridge,
+//! and factory-created nodes (Retain / Adopt).
+//!
+//! Consumer (prefer MUI_MenuBase / MUI_HudHost instead of calling this directly):
+//!   m_Runtime = new MUI_Runtime();
+//!   m_Runtime.Mount(host);           // interactive menu
+//!   m_Runtime.MountPassive(host);    // HUD: no input, no prompts, IGNORE_CURSOR canvases
+//!   // Create* factories; every kept node is `protected ref`
+//!   m_Runtime.SetRoot(overlay);
+//!   m_Runtime.GetOnBack().Insert(OnClose);
+//!   each frame: m_Runtime.Tick(dt);
+//!   close: Unmount, RemoveFromHierarchy host
+//!
+//! Custom widgets:
+//!   ref MyGauge g = new MyGauge();
+//!   runtime.Adopt(g);
+//!   parent.AddChild(g);
+//!
+//! HUD: Create(..., ignoreCursor) is required true. Canvas without IGNORE_CURSOR on
+//! ALWAYS_TOP steals all mouse clicks from native UI.
+//------------------------------------------------------------------------------------------------
 class MUI_Runtime
 {
 	protected Widget m_wHost;
@@ -19,6 +40,9 @@ class MUI_Runtime
 	protected bool m_bPaintDirty;
 	protected bool m_bMounted;
 	protected bool m_bInteractive;
+	protected string m_sPromptSelect;
+	protected string m_sPromptBack;
+	protected ref MUI_ThemeData m_Theme;
 	protected float m_fHostW;
 	protected float m_fHostH;
 	protected float m_fTime;
@@ -31,6 +55,24 @@ class MUI_Runtime
 		m_Input = new MUI_InputRouter();
 		m_Edit = new MUI_EditBridge();
 		m_OnBack = new ScriptInvoker();
+		m_Theme = MUI_ThemeData.CreateUplink();
+		m_sPromptSelect = "<action name='MenuSelect' scale='1.35'/>  Select";
+		m_sPromptBack = "<action name='MenuBack' scale='1.35'/>  Back";
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Call before BuildUI / Create*. Hot-swap after SetRoot is not supported in 0.2.0.
+	void SetTheme(notnull MUI_ThemeData theme)
+	{
+		m_Theme = theme;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	MUI_ThemeData GetTheme()
+	{
+		if (!m_Theme)
+			m_Theme = MUI_ThemeData.CreateUplink();
+		return m_Theme;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -62,12 +104,18 @@ class MUI_Runtime
 
 		m_RootSurface = new MUI_RenderSurface();
 		if (!m_RootSurface.Create(m_Workspace, m_wHost, 0, !interactive))
+		{
+			Unmount();
 			return false;
+		}
 		m_RootSurface.FillHost();
 
 		m_ChromeSurface = new MUI_RenderSurface();
 		if (!m_ChromeSurface.Create(m_Workspace, m_wHost, 5, !interactive))
+		{
+			Unmount();
 			return false;
+		}
 		m_ChromeSurface.FillHost();
 
 		m_bInteractive = interactive;
@@ -77,7 +125,10 @@ class MUI_Runtime
 			m_wHost.AddHandler(m_Input);
 
 			if (!m_Edit.Create(m_Workspace, m_wHost))
+			{
+				Unmount();
 				return false;
+			}
 
 			CreatePrompts();
 		}
@@ -86,8 +137,10 @@ class MUI_Runtime
 		m_wMeasure = TextWidget.Cast(measureW);
 		if (m_wMeasure)
 		{
-			m_wMeasure.SetFont(MUI_Theme.FONT_REGULAR);
-			m_wMeasure.SetExactFontSize(MUI_Theme.FONT_BODY);
+			MUI_ThemeData theme = GetTheme();
+			m_wMeasure.SetFont(theme.FONT_REGULAR);
+			m_wMeasure.SetExactFontSize(theme.FONT_BODY);
+			MUI_TextUtil.SetLiteral(m_wMeasure, " ");
 			FrameSlot.SetPos(m_wMeasure, -4000, -4000);
 			FrameSlot.SetSize(m_wMeasure, 8, 8);
 		}
@@ -210,6 +263,8 @@ class MUI_Runtime
 			m_Input.UpdatePointer();
 		if (m_bLayoutDirty)
 			Layout();
+		if (m_bInteractive && m_Edit)
+			m_Edit.SyncLayout();
 		Paint();
 	}
 
@@ -268,11 +323,82 @@ class MUI_Runtime
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Host frame for host widgets (blur/image). Prefer clip surface frame when under a ScrollView.
+	Widget GetHostForNode(MUI_Node node)
+	{
+		MUI_Node clipOwner = null;
+		MUI_Node walk = node;
+		while (walk)
+		{
+			if (walk.ClipsChildren())
+			{
+				clipOwner = walk;
+				break;
+			}
+			walk = walk.GetParent();
+		}
+
+		if (clipOwner)
+		{
+			int i;
+			for (i = 0; i < m_aClipSurfaces.Count(); i++)
+			{
+				if (m_aClipSurfaces[i] && m_aClipSurfaces[i].GetClipNode() == clipOwner)
+					return m_aClipSurfaces[i].GetFrame();
+			}
+		}
+		return m_wHost;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! DrawX/Y converted into the host widget returned by GetHostForNode (clip frames are local).
+	void GetHostLocalPos(MUI_Node node, out float x, out float y)
+	{
+		x = 0;
+		y = 0;
+		if (!node)
+			return;
+		x = node.DrawX();
+		y = node.DrawY();
+		Widget host = GetHostForNode(node);
+		if (!host || host == m_wHost)
+			return;
+
+		MUI_Node walk = node.GetParent();
+		while (walk)
+		{
+			if (walk.ClipsChildren())
+			{
+				x = node.DrawX() - walk.DrawX();
+				y = node.DrawY() - walk.DrawY();
+				return;
+			}
+			walk = walk.GetParent();
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected void Paint()
 	{
 		m_bPaintDirty = false;
 		if (!m_Root || !m_RootSurface || !m_ChromeSurface)
 			return;
+
+		int i;
+		for (i = 0; i < m_aClipSurfaces.Count(); i++)
+		{
+			if (m_aClipSurfaces[i])
+				m_aClipSurfaces[i].SetUsed(false);
+		}
+
+		MUI_ThemeData theme = GetTheme();
+		m_RootSurface.ApplyThemeFonts(theme);
+		m_ChromeSurface.ApplyThemeFonts(theme);
+		for (i = 0; i < m_aClipSurfaces.Count(); i++)
+		{
+			if (m_aClipSurfaces[i])
+				m_aClipSurfaces[i].ApplyThemeFonts(theme);
+		}
 
 		// Backdrop pass (FxBackdrop) under BlurWidgets.
 		m_RootSurface.Begin();
@@ -283,6 +409,8 @@ class MUI_Runtime
 		m_ChromeSurface.Begin();
 		PaintNode(m_Root, m_ChromeSurface, 0, 0, 1, false);
 		m_ChromeSurface.Submit();
+
+		ReapClipSurfaces();
 
 		// Keep host widgets (card blur) in sync even when their owners are hidden.
 		if (m_Root)
@@ -344,21 +472,83 @@ class MUI_Runtime
 		int i;
 		for (i = 0; i < m_aClipSurfaces.Count(); i++)
 		{
-			if (m_aClipSurfaces[i].GetClipNode() == node)
+			if (m_aClipSurfaces[i] && m_aClipSurfaces[i].GetClipNode() == node)
+			{
+				m_aClipSurfaces[i].SetUsed(true);
 				return m_aClipSurfaces[i];
+			}
 		}
 
 		if (!m_Workspace || !m_wHost)
 			return null;
 
+		Widget parentW = m_wHost;
+		MUI_Node ancestorClip = FindAncestorClip(node);
+		if (ancestorClip)
+		{
+			MUI_RenderSurface parentSurf = FindClipSurface(ancestorClip);
+			if (parentSurf && parentSurf.GetFrame())
+				parentW = parentSurf.GetFrame();
+		}
+
 		ref MUI_RenderSurface surface = new MUI_RenderSurface();
 		int z = 10 + m_aClipSurfaces.Count();
-		if (!surface.Create(m_Workspace, m_wHost, z, !m_bInteractive))
+		if (!surface.Create(m_Workspace, parentW, z, !m_bInteractive))
 			return null;
 		surface.SetClipNode(node);
+		surface.SetClipParentNode(ancestorClip);
+		surface.ApplyThemeFonts(GetTheme());
+		surface.SetUsed(true);
 		surface.SyncFrameToNode();
 		m_aClipSurfaces.Insert(surface);
 		return surface;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected MUI_Node FindAncestorClip(notnull MUI_Node node)
+	{
+		MUI_Node walk = node.GetParent();
+		while (walk)
+		{
+			if (walk.ClipsChildren())
+				return walk;
+			walk = walk.GetParent();
+		}
+		return null;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected MUI_RenderSurface FindClipSurface(MUI_Node node)
+	{
+		if (!node)
+			return null;
+		int i;
+		for (i = 0; i < m_aClipSurfaces.Count(); i++)
+		{
+			if (m_aClipSurfaces[i] && m_aClipSurfaces[i].GetClipNode() == node)
+				return m_aClipSurfaces[i];
+		}
+		return null;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Destroy clip canvases not visited this paint (hidden / removed ScrollViews leave ghosts otherwise).
+	protected void ReapClipSurfaces()
+	{
+		ref array<ref MUI_RenderSurface> kept = new array<ref MUI_RenderSurface>();
+		int i;
+		for (i = 0; i < m_aClipSurfaces.Count(); i++)
+		{
+			MUI_RenderSurface surface = m_aClipSurfaces[i];
+			if (surface && surface.WasUsed())
+			{
+				kept.Insert(surface);
+				continue;
+			}
+			if (surface)
+				surface.Destroy();
+		}
+		m_aClipSurfaces = kept;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -385,15 +575,26 @@ class MUI_Runtime
 	{
 		if (!m_Root)
 			return null;
-		return HitTestNode(m_Root, x, y);
+		return HitTestNode(m_Root, x, y, 0);
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected MUI_Node HitTestNode(MUI_Node node, float x, float y)
+	protected MUI_Node HitTestNode(MUI_Node node, float x, float y, float parentSlide)
 	{
 		if (!node || !node.IsVisible())
 			return null;
-		if (!node.GetWorldRect().Contains(x, y))
+
+		float slide = parentSlide + node.GetSlideY();
+		MUI_Rect wr = node.GetWorldRect();
+		float nx = wr.m_fX;
+		float ny = wr.m_fY + slide;
+		if (x < nx)
+			return null;
+		if (y < ny)
+			return null;
+		if (x > nx + wr.m_fW)
+			return null;
+		if (y > ny + wr.m_fH)
 			return null;
 
 		int i;
@@ -406,13 +607,17 @@ class MUI_Runtime
 			if (node.ClipsChildren())
 			{
 				MUI_Rect cr = child.GetWorldRect();
-				MUI_Rect pr = node.GetWorldRect();
-				if (cr.m_fY + cr.m_fH < pr.m_fY)
+				float cy = cr.m_fY + slide + child.GetSlideY();
+				if (cr.m_fX + cr.m_fW < nx)
 					continue;
-				if (cr.m_fY > pr.m_fY + pr.m_fH)
+				if (cr.m_fX > nx + wr.m_fW)
+					continue;
+				if (cy + cr.m_fH < ny)
+					continue;
+				if (cy > ny + wr.m_fH)
 					continue;
 			}
-			MUI_Node childHit = HitTestNode(child, x, y);
+			MUI_Node childHit = HitTestNode(child, x, y, slide);
 			if (childHit)
 				return childHit;
 		}
@@ -423,17 +628,52 @@ class MUI_Runtime
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Keep a focused control inside clipping ancestors (ScrollView).
+	void EnsureNodeVisible(MUI_Node node)
+	{
+		if (!node)
+			return;
+
+		float yAdj = 0;
+		MUI_Node walk = node.GetParent();
+		while (walk)
+		{
+			if (walk.ClipsChildren())
+			{
+				MUI_Rect nr = node.GetWorldRect();
+				MUI_Rect pr = walk.GetWorldRect();
+				MUI_Style st = walk.GetStyle();
+				float viewTop = pr.m_fY + st.m_fPadT;
+				float viewBot = pr.m_fY + pr.m_fH - st.m_fPadB;
+				float nodeTop = nr.m_fY + yAdj;
+				float nodeBot = nodeTop + nr.m_fH;
+				float dy = 0;
+				float margin = 4;
+				if (nodeTop < viewTop + margin)
+					dy = nodeTop - (viewTop + margin);
+				else if (nodeBot > viewBot - margin)
+					dy = nodeBot - (viewBot - margin);
+				if (dy != 0)
+				{
+					walk.SetScrollY(walk.GetScrollY() + dy);
+					yAdj = yAdj - dy;
+				}
+			}
+			walk = walk.GetParent();
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void OnFocusChanged(MUI_Node node)
 	{
-		MUI_TextField field = MUI_TextField.Cast(node);
 		InputManager im = GetGame().GetInputManager();
 		bool kbm = true;
 		if (im)
 			kbm = im.IsUsingMouseAndKeyboard();
 
-		if (field && kbm)
+		if (node && node.WantsTextInput() && kbm)
 		{
-			m_Edit.Attach(field);
+			m_Edit.Attach(node);
 			return;
 		}
 		if (m_Edit)
@@ -441,10 +681,12 @@ class MUI_Runtime
 	}
 
 	//------------------------------------------------------------------------------------------------
-	void BeginEditing(notnull MUI_TextField field)
+	void BeginEditing(notnull MUI_Node node)
 	{
+		if (!node.WantsTextInput())
+			return;
 		if (m_Edit)
-			m_Edit.Attach(field);
+			m_Edit.Attach(node);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -486,7 +728,7 @@ class MUI_Runtime
 	{
 		if (!node || !node.IsVisible())
 			return;
-		if (node.AcceptsClick())
+		if (node.WantsFocus())
 			list.Insert(node);
 		int count = node.GetChildCount();
 		int i;
@@ -514,9 +756,21 @@ class MUI_Runtime
 		Widget backW = m_Workspace.CreateWidget(WidgetType.RichTextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.CENTER | WidgetFlags.VCENTER, Color.FromInt(Color.WHITE), 0, m_wPromptRoot);
 		m_wPromptBack = RichTextWidget.Cast(backW);
 
-		StylePrompt(m_wPromptSelect, "<action name='MenuSelect' scale='1.35'/>  Select");
-		StylePrompt(m_wPromptBack, "<action name='MenuBack' scale='1.35'/>  Back");
+		StylePrompt(m_wPromptSelect, m_sPromptSelect);
+		StylePrompt(m_wPromptBack, m_sPromptBack);
 		LayoutPrompts();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Override Select/Back prompt rich text. Safe to call before or after Mount.
+	void SetPromptText(string selectText, string backText)
+	{
+		m_sPromptSelect = selectText;
+		m_sPromptBack = backText;
+		if (m_wPromptSelect)
+			StylePrompt(m_wPromptSelect, m_sPromptSelect);
+		if (m_wPromptBack)
+			StylePrompt(m_wPromptBack, m_sPromptBack);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -524,14 +778,18 @@ class MUI_Runtime
 	{
 		if (!tw)
 			return;
-		tw.SetFont(MUI_Theme.FONT_BOLD);
-		tw.SetExactFontSize(MUI_Theme.FONT_BODY);
-		tw.SetDesiredFontSize(MUI_Theme.FONT_BODY);
+		MUI_ThemeData theme = GetTheme();
+		tw.SetFont(theme.FONT_BOLD);
+		tw.SetExactFontSize(theme.FONT_BODY);
+		tw.SetDesiredFontSize(theme.FONT_BODY);
 		tw.SetSharpness(0.35);
 		tw.SetOutline(1, 0xB0141410);
 		tw.SetShadow(2, 0xA0000000, 1, 0, 1);
-		tw.SetColor(MUI_Theme.Text);
-		tw.SetText(text);
+		tw.SetColor(theme.Text);
+		if (text.IsEmpty())
+			tw.SetTextFormat("%1", " ");
+		else
+			tw.SetTextFormat("%1", text);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -562,25 +820,118 @@ class MUI_Runtime
 		h = fontSize;
 		if (!m_wMeasure)
 			return;
+		if (text.IsEmpty())
+			return;
+
+		MUI_ThemeData theme = GetTheme();
 		if (bold)
-			m_wMeasure.SetFont(MUI_Theme.FONT_BOLD);
+			m_wMeasure.SetFont(theme.FONT_BOLD);
 		else
-			m_wMeasure.SetFont(MUI_Theme.FONT_REGULAR);
+			m_wMeasure.SetFont(theme.FONT_REGULAR);
 		m_wMeasure.SetExactFontSize(fontSize);
 		m_wMeasure.SetDesiredFontSize(fontSize);
 		m_wMeasure.SetMinFontSize(fontSize);
 		m_wMeasure.SetSharpness(0.35);
-		m_wMeasure.SetText(text);
-		if (wrapWidth > 0)
+		MUI_TextUtil.SetLiteral(m_wMeasure, text);
+
+		m_wMeasure.ClearFlags(WidgetFlags.WRAP_TEXT);
+		m_wMeasure.SetTextWrapping(false);
+		FrameSlot.SetSize(m_wMeasure, 8000, 64);
+		m_wMeasure.Update();
+		float unW;
+		float unH;
+		m_wMeasure.GetTextSize(unW, unH);
+		if (unH < fontSize)
+			unH = fontSize;
+
+		if (wrapWidth <= 0)
 		{
-			m_wMeasure.SetTextWrapping(true);
-			FrameSlot.SetSize(m_wMeasure, wrapWidth, 2000);
+			w = unW;
+			h = unH;
+			return;
 		}
-		else
-		{
-			m_wMeasure.SetTextWrapping(false);
-		}
+
+		m_wMeasure.SetTextWrapping(true);
+		m_wMeasure.SetFlags(WidgetFlags.WRAP_TEXT);
+		FrameSlot.SetSize(m_wMeasure, wrapWidth, 2000);
+		m_wMeasure.Update();
 		m_wMeasure.GetTextSize(w, h);
+
+		int lines = m_wMeasure.GetNumLines();
+		int estimated = EstimateWrappedLineCount(text, unW, wrapWidth);
+		if (lines < estimated)
+			lines = estimated;
+		if (lines < 1)
+			lines = 1;
+
+		float wrappedH = unH * lines;
+		if (h < wrappedH)
+			h = wrappedH;
+		if (w < 1)
+			w = wrapWidth;
+		else if (w > wrapWidth)
+			w = wrapWidth;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected int EstimateWrappedLineCount(string text, float unwrappedW, float wrapWidth)
+	{
+		if (text.IsEmpty())
+			return 1;
+		if (wrapWidth < 8)
+			return 1;
+
+		int textLen = text.Length();
+		if (textLen < 1)
+			return 1;
+
+		float avgChar = unwrappedW / textLen;
+		array<string> paragraphs = new array<string>();
+		text.Split("\n", paragraphs, true);
+		if (paragraphs.IsEmpty())
+			paragraphs.Insert(text);
+
+		int total = 0;
+		int p;
+		for (p = 0; p < paragraphs.Count(); p++)
+		{
+			total = total + CountWordWrappedLines(paragraphs[p], wrapWidth, avgChar);
+		}
+		if (total < 1)
+			total = 1;
+		return total;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected int CountWordWrappedLines(string text, float wrapWidth, float avgChar)
+	{
+		if (text.IsEmpty())
+			return 1;
+		if (avgChar < 0.1)
+			return 1;
+
+		array<string> words = new array<string>();
+		text.Split(" ", words, true);
+		if (words.IsEmpty())
+			return 1;
+
+		int lines = 1;
+		float x = 0;
+		int i;
+		for (i = 0; i < words.Count(); i++)
+		{
+			float wordW = avgChar * words[i].Length();
+			if (i > 0)
+				wordW = wordW + avgChar;
+			if (x > 0 && x + wordW > wrapWidth)
+			{
+				lines = lines + 1;
+				x = avgChar * words[i].Length();
+			}
+			else
+				x = x + wordW;
+		}
+		return lines;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -592,11 +943,28 @@ class MUI_Runtime
 	}
 
 	//------------------------------------------------------------------------------------------------
+	protected void FinishCreate(notnull MUI_Node node, string name)
+	{
+		Retain(node);
+		node.SetName(name);
+		node.ApplyTheme(GetTheme());
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Register a consumer-created node (subclass of MUI_Node) with the runtime GC root.
+	//! Always `ref` the local, Adopt, then AddChild.
+	MUI_Node Adopt(notnull MUI_Node node)
+	{
+		Retain(node);
+		node.ApplyTheme(GetTheme());
+		return node;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	MUI_Panel CreatePanel(string name = "")
 	{
 		ref MUI_Panel panel = new MUI_Panel();
-		Retain(panel);
-		panel.SetName(name);
+		FinishCreate(panel, name);
 		return panel;
 	}
 
@@ -604,8 +972,7 @@ class MUI_Runtime
 	MUI_Label CreateLabel(string text, string name = "")
 	{
 		ref MUI_Label label = new MUI_Label();
-		Retain(label);
-		label.SetName(name);
+		FinishCreate(label, name);
 		label.SetText(text);
 		return label;
 	}
@@ -614,8 +981,7 @@ class MUI_Runtime
 	MUI_Button CreateButton(string text, string name = "")
 	{
 		ref MUI_Button button = new MUI_Button();
-		Retain(button);
-		button.SetName(name);
+		FinishCreate(button, name);
 		button.SetText(text);
 		return button;
 	}
@@ -624,8 +990,7 @@ class MUI_Runtime
 	MUI_Toggle CreateToggle(string text, string name = "")
 	{
 		ref MUI_Toggle toggle = new MUI_Toggle();
-		Retain(toggle);
-		toggle.SetName(name);
+		FinishCreate(toggle, name);
 		toggle.SetText(text);
 		return toggle;
 	}
@@ -634,8 +999,7 @@ class MUI_Runtime
 	MUI_TextField CreateTextField(string label, string name = "")
 	{
 		ref MUI_TextField field = new MUI_TextField();
-		Retain(field);
-		field.SetName(name);
+		FinishCreate(field, name);
 		field.SetLabel(label);
 		return field;
 	}
@@ -644,8 +1008,7 @@ class MUI_Runtime
 	MUI_ScrollView CreateScrollView(string name = "")
 	{
 		ref MUI_ScrollView scroll = new MUI_ScrollView();
-		Retain(scroll);
-		scroll.SetName(name);
+		FinishCreate(scroll, name);
 		return scroll;
 	}
 
@@ -653,8 +1016,7 @@ class MUI_Runtime
 	MUI_Row CreateRow(string name = "")
 	{
 		ref MUI_Row row = new MUI_Row();
-		Retain(row);
-		row.SetName(name);
+		FinishCreate(row, name);
 		return row;
 	}
 
@@ -662,8 +1024,7 @@ class MUI_Runtime
 	MUI_FxBackdrop CreateFxBackdrop(string name = "")
 	{
 		ref MUI_FxBackdrop fx = new MUI_FxBackdrop();
-		Retain(fx);
-		fx.SetName(name);
+		FinishCreate(fx, name);
 		return fx;
 	}
 
@@ -671,8 +1032,7 @@ class MUI_Runtime
 	MUI_Card CreateCard(string name = "")
 	{
 		ref MUI_Card card = new MUI_Card();
-		Retain(card);
-		card.SetName(name);
+		FinishCreate(card, name);
 		return card;
 	}
 
@@ -680,8 +1040,7 @@ class MUI_Runtime
 	MUI_LiveHeader CreateLiveHeader(string title, string name = "")
 	{
 		ref MUI_LiveHeader header = new MUI_LiveHeader();
-		Retain(header);
-		header.SetName(name);
+		FinishCreate(header, name);
 		header.SetTitle(title);
 		return header;
 	}
@@ -690,8 +1049,90 @@ class MUI_Runtime
 	MUI_Hairline CreateHairline(string name = "")
 	{
 		ref MUI_Hairline line = new MUI_Hairline();
-		Retain(line);
-		line.SetName(name);
+		FinishCreate(line, name);
 		return line;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	MUI_Spacer CreateSpacer(float height = 8, string name = "")
+	{
+		ref MUI_Spacer spacer = new MUI_Spacer();
+		FinishCreate(spacer, name);
+		spacer.SetHeight(height);
+		return spacer;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	MUI_Surface CreateSurface(string name = "")
+	{
+		ref MUI_Surface surface = new MUI_Surface();
+		FinishCreate(surface, name);
+		return surface;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	MUI_Header CreateHeader(string title, string name = "")
+	{
+		ref MUI_Header header = new MUI_Header();
+		FinishCreate(header, name);
+		header.SetTitle(title);
+		return header;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	MUI_Divider CreateDivider(string name = "")
+	{
+		ref MUI_Divider line = new MUI_Divider();
+		FinishCreate(line, name);
+		return line;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	MUI_Image CreateImage(string name = "")
+	{
+		ref MUI_Image image = new MUI_Image();
+		FinishCreate(image, name);
+		return image;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	MUI_Progress CreateProgress(string name = "")
+	{
+		ref MUI_Progress progress = new MUI_Progress();
+		FinishCreate(progress, name);
+		return progress;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	MUI_Slider CreateSlider(string name = "")
+	{
+		ref MUI_Slider slider = new MUI_Slider();
+		FinishCreate(slider, name);
+		return slider;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	MUI_NumericField CreateNumericField(string label, string name = "")
+	{
+		ref MUI_NumericField field = new MUI_NumericField();
+		FinishCreate(field, name);
+		field.SetLabel(label);
+		return field;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	MUI_Tabs CreateTabs(string name = "")
+	{
+		ref MUI_Tabs tabs = new MUI_Tabs();
+		FinishCreate(tabs, name);
+		return tabs;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	MUI_Dropdown CreateDropdown(string name = "")
+	{
+		ref MUI_Dropdown dropdown = new MUI_Dropdown();
+		FinishCreate(dropdown, name);
+		return dropdown;
 	}
 }

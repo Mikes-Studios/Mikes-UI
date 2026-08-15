@@ -1,7 +1,12 @@
 //------------------------------------------------------------------------------------------------
 //! Color helpers. Enfusion Color stores **linear** RGB.
-//! Theme tokens come from FromSRGBA (sRGB authoring → linear storage).
-//! Pack for Canvas/TextWidget with PackToInt() (linear → packed sRGB ARGB).
+//!
+//! Consumer:
+//!   surface.FillRect(..., MUI_ColorUtil.Fade(fill, op), radius);
+//!   Fade copies into a pool — never pass two Fade() results that would share one scratch
+//!   if you mutate; each Fade returns a distinct pooled Color.
+//!   Mix(a, b, t, dest) writes into dest (keep `ref Color m_Mix` on the widget).
+//------------------------------------------------------------------------------------------------
 class MUI_ColorUtil
 {
 	protected static ref Color s_Scratch;

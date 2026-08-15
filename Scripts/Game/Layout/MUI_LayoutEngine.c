@@ -1,4 +1,11 @@
 //------------------------------------------------------------------------------------------------
+//! Measure + Arrange. Called from MUI_Runtime when layout is dirty. Do not call from menus.
+//!
+//! Consumer pitfalls:
+//!   Buttons in a row: Hug width + Grow 1 (default). Do not SetFillWidth on those buttons.
+//!   Scroll lists: SetViewportHeight(h) so the parent card does not grow with content.
+//!   Overlay center: child Exact or Hug size + SetAlign(0.5, 0.5).
+//------------------------------------------------------------------------------------------------
 class MUI_LayoutEngine
 {
 	//------------------------------------------------------------------------------------------------

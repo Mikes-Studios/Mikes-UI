@@ -1,4 +1,14 @@
 //------------------------------------------------------------------------------------------------
+//! One compositor layer: Frame + CanvasWidget + pooled TextWidgets.
+//!
+//! Consumer:
+//!   You receive this in Paint / PaintForeground. Draw in layout pixels:
+//!   FillRect, StrokeRect, DrawLine, FillCircle, StrokeCircle, DrawArc, FillGradientV, DrawText.
+//!   Colors: MUI_ColorUtil.Fade(token, GetDrawOpacity()). Radius == half short side collapses
+//!   the tessellator — CanvasRenderer clamps; still avoid pill radius == height/2 on thin bars.
+//!
+//! Coords: layout space is DPIUnscale. Canvas vertices are screen pixels (DPIScale).
+//------------------------------------------------------------------------------------------------
 class MUI_RenderSurface
 {
 	protected Widget m_wFrame;
@@ -9,7 +19,11 @@ class MUI_RenderSurface
 	protected ref MUI_TextRenderer m_Text;
 	protected ref MUI_Rect m_Origin;
 	protected MUI_Node m_ClipNode;
+	protected MUI_Node m_ClipParent;
 	protected bool m_bIgnoreCursor;
+	protected bool m_bUsed;
+	protected string m_sFontRegular;
+	protected string m_sFontBold;
 
 	//------------------------------------------------------------------------------------------------
 	void MUI_RenderSurface()
@@ -45,7 +59,7 @@ class MUI_RenderSurface
 		FrameSlot.SetAnchorMax(m_wFrame, 1, 1);
 		FrameSlot.SetOffsets(m_wFrame, 0, 0, 0, 0);
 
-		Widget canvasW = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, canvasFlags, Color.FromInt(Color.WHITE), 0, m_wFrame);
+		Widget canvasW = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, canvasFlags, Color.FromInt(Color.WHITE), 2, m_wFrame);
 		m_wCanvas = CanvasWidget.Cast(canvasW);
 		if (!m_wCanvas)
 		{
@@ -56,7 +70,7 @@ class MUI_RenderSurface
 		FrameSlot.SetAnchorMax(m_wCanvas, 1, 1);
 		FrameSlot.SetOffsets(m_wCanvas, 0, 0, 0, 0);
 
-		m_wTextLayer = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, textFlags, Color.FromInt(Color.WHITE), 1, m_wFrame);
+		m_wTextLayer = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, textFlags, Color.FromInt(Color.WHITE), 3, m_wFrame);
 		if (!m_wTextLayer)
 		{
 			MUI_Log.Error("Failed to create text layer");
@@ -77,9 +91,36 @@ class MUI_RenderSurface
 	}
 
 	//------------------------------------------------------------------------------------------------
+	void SetClipParentNode(MUI_Node node)
+	{
+		m_ClipParent = node;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	MUI_Node GetClipNode()
 	{
 		return m_ClipNode;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void SetUsed(bool used)
+	{
+		m_bUsed = used;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	bool WasUsed()
+	{
+		return m_bUsed;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void ApplyThemeFonts(notnull MUI_ThemeData theme)
+	{
+		m_sFontRegular = theme.FONT_REGULAR;
+		m_sFontBold = theme.FONT_BOLD;
+		if (m_Text)
+			m_Text.SetFonts(m_sFontRegular, m_sFontBold);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -90,6 +131,11 @@ class MUI_RenderSurface
 		MUI_Rect r = m_ClipNode.GetWorldRect();
 		float x = m_ClipNode.DrawX();
 		float y = m_ClipNode.DrawY();
+		if (m_ClipParent)
+		{
+			x = x - m_ClipParent.DrawX();
+			y = y - m_ClipParent.DrawY();
+		}
 		float w = r.m_fW;
 		float h = r.m_fH;
 		if (w < 1)
@@ -101,7 +147,8 @@ class MUI_RenderSurface
 		FrameSlot.SetPos(m_wFrame, x, y);
 		FrameSlot.SetSize(m_wFrame, w, h);
 		m_wFrame.SetFlags(WidgetFlags.CLIPCHILDREN);
-		m_Origin.Set(x, y, w, h);
+		m_wFrame.SetVisible(true);
+		m_Origin.Set(m_ClipNode.DrawX(), m_ClipNode.DrawY(), w, h);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -283,6 +330,7 @@ class MUI_RenderSurface
 		m_wTextLayer = null;
 		m_Workspace = null;
 		m_ClipNode = null;
+		m_ClipParent = null;
 		m_aCommands.Clear();
 	}
 }

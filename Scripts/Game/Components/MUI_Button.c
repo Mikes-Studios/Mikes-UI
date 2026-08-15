@@ -1,4 +1,16 @@
 //------------------------------------------------------------------------------------------------
+//! Clickable text control. GetOnClicked().Insert(handler).
+//!
+//! Consumer:
+//!   MUI_Button b = runtime.CreateButton("Save", "save");
+//!   b.MakeAccent(); // or MakeDanger() / MakeDefault()
+//!   b.GetOnClicked().Insert(OnSave);
+//!   row.AddChild(b);
+//!
+//! Layout:
+//!   Hug width, Exact height 44, Grow 1 (equal share in a row).
+//!   Do NOT SetFillWidth() in a row — each button would measure as 100% of the row.
+//------------------------------------------------------------------------------------------------
 class MUI_Button : MUI_Node
 {
 	protected string m_sText;
@@ -27,6 +39,31 @@ class MUI_Button : MUI_Node
 	}
 
 	//------------------------------------------------------------------------------------------------
+	override void ApplyTheme(notnull MUI_ThemeData theme)
+	{
+		m_Style.m_iFontSize = theme.FONT_BODY;
+		m_Style.m_Text = theme.Text;
+		if (m_bDanger)
+		{
+			m_Style.m_Fill = theme.Danger;
+			m_Style.m_FillHover = theme.DangerHover;
+			m_Style.m_FillPress = theme.Accent;
+		}
+		else if (m_bAccent)
+		{
+			m_Style.m_Fill = theme.AccentDark;
+			m_Style.m_FillHover = theme.Accent;
+			m_Style.m_FillPress = theme.Accent;
+		}
+		else
+		{
+			m_Style.m_Fill = theme.Button;
+			m_Style.m_FillHover = theme.ButtonHover;
+			m_Style.m_FillPress = theme.ButtonPress;
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void SetText(string text)
 	{
 		m_sText = text;
@@ -44,9 +81,7 @@ class MUI_Button : MUI_Node
 	{
 		m_bDanger = true;
 		m_bAccent = false;
-		m_Style.m_Fill = MUI_Theme.Danger;
-		m_Style.m_FillHover = MUI_Theme.DangerHover;
-		m_Style.m_FillPress = MUI_Theme.Accent;
+		ApplyTheme(GetTheme());
 		InvalidatePaint();
 	}
 
@@ -55,9 +90,7 @@ class MUI_Button : MUI_Node
 	{
 		m_bAccent = true;
 		m_bDanger = false;
-		m_Style.m_Fill = MUI_Theme.AccentDark;
-		m_Style.m_FillHover = MUI_Theme.Accent;
-		m_Style.m_FillPress = MUI_Theme.Accent;
+		ApplyTheme(GetTheme());
 		InvalidatePaint();
 	}
 
@@ -66,10 +99,7 @@ class MUI_Button : MUI_Node
 	{
 		m_bAccent = false;
 		m_bDanger = false;
-		m_Style.m_Fill = MUI_Theme.Button;
-		m_Style.m_FillHover = MUI_Theme.ButtonHover;
-		m_Style.m_FillPress = MUI_Theme.ButtonPress;
-		m_Style.m_Text = MUI_Theme.Text;
+		ApplyTheme(GetTheme());
 		InvalidatePaint();
 	}
 
@@ -116,20 +146,22 @@ class MUI_Button : MUI_Node
 		if (op < 0.01)
 			return;
 
+		float rad = m_Style.m_fRadius;
 		Color fill = ResolveFill();
+		MUI_ThemeData theme = GetTheme();
 		float glow = hover * 0.28 + 0.08 * MUI_Ease.Pulse(GetTime(), 1.1);
 		if (m_bAccent || m_bDanger)
-			surface.FillRect(x - 3, y - 3, w + 6, h + 6, MUI_ColorUtil.Fade(fill, op * glow), 12);
+			surface.FillRect(x - 3, y - 3, w + 6, h + 6, MUI_ColorUtil.Fade(fill, op * glow), rad + 2);
 
-		surface.FillRect(x, y, w, h, MUI_ColorUtil.Fade(fill, op), 10);
-		surface.StrokeRect(x, y, w, h, MUI_ColorUtil.Fade(MUI_Theme.Sheen, op * (0.15 + hover * 0.4)), 1.2, 10);
+		surface.FillRect(x, y, w, h, MUI_ColorUtil.Fade(fill, op), rad);
+		surface.StrokeRect(x, y, w, h, MUI_ColorUtil.Fade(theme.Sheen, op * (0.15 + hover * 0.4)), 1.2, rad);
 		PaintFocusRing(surface, x, y, w, h);
 
 		float ripple = GetRipple();
 		if (ripple > 0 && ripple < 1)
 		{
 			float rr = (w * 0.15) + ripple * w * 0.55;
-			surface.StrokeCircle(x + w * 0.5, y + h * 0.5, rr, MUI_ColorUtil.Fade(MUI_Theme.Sheen, op * (1.0 - ripple) * 0.55), 2);
+			surface.StrokeCircle(x + w * 0.5, y + h * 0.5, rr, MUI_ColorUtil.Fade(theme.Sheen, op * (1.0 - ripple) * 0.55), 2);
 		}
 
 		Color textCol = m_Style.m_Text;

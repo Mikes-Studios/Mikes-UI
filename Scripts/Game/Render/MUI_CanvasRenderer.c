@@ -1,4 +1,7 @@
 //------------------------------------------------------------------------------------------------
+//! Tessellates rects/circles/arcs into CanvasWidgetCommand. Internal — call via MUI_RenderSurface.
+//! Degenerate polygons: radius is clamped to min(w,h)*0.5-1; tiny fills (w/h < 0.75) are skipped.
+//------------------------------------------------------------------------------------------------
 class MUI_CanvasRenderer
 {
 	protected static const int CIRCLE_SEGS = 28;
