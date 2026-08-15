@@ -2,7 +2,7 @@
 //! Easing used by intro / hover / focus / FX. Time is MUI_Runtime.GetTime() seconds.
 //!
 //! Consumer:
-//!   MUI_Ease.CubicOut(t), BackOut(t), Approach(value, target, dt, speed),
+//!   MUI_Ease.CubicOut(t), CubicIn(t), BackOut(t), Approach(value, target, dt, speed),
 //!   Pulse(time, hz), Fract(v). Intro: fromY > 24 uses BackOut else CubicOut.
 //------------------------------------------------------------------------------------------------
 class MUI_Ease
@@ -21,6 +21,13 @@ class MUI_Ease
 	static float Linear(float t)
 	{
 		return Clamp01(t);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	static float CubicIn(float t)
+	{
+		t = Clamp01(t);
+		return t * t * t;
 	}
 
 	//------------------------------------------------------------------------------------------------
