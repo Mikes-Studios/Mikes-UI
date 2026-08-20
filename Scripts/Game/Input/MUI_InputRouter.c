@@ -6,10 +6,14 @@
 //!   Do not create this. Activate MenuWithEditorContext each tick (MUI_MenuHost does).
 //!   Back: StopEditing first, else GetOnBack(). Select: WantsTextInput -> BeginEditing,
 //!   else HandleActivate. Left/right: HandleNavAxis, else move focus in-row.
+//!   Clicking an already-focused text field still BeginEditing (write-mode leave
+//!   can detach the bridge without clearing MUI focus).
 //!
 //! Extend:
 //!   Custom widgets hook input via MUI_Node.WantsTextInput / HandleNavAxis / HandleActivate.
 //!   Do not edit this router to special-case your class.
+//!   Gamepad: ignore mouse down/up (MenuSelect is a click at a stale cursor). Hover
+//!   follows focus. Hidden widgets are dropped by EnsureFocus each tick.
 //------------------------------------------------------------------------------------------------
 class MUI_InputRouter : ScriptedWidgetEventHandler
 {
@@ -95,7 +99,11 @@ class MUI_InputRouter : ScriptedWidgetEventHandler
 	void SetFocused(MUI_Node node)
 	{
 		if (m_Focused == node)
+		{
+			if (node && node.WantsTextInput() && m_Runtime)
+				m_Runtime.BeginEditing(node);
 			return;
+		}
 		if (m_Focused)
 			m_Focused.SetFocused(false);
 		m_Focused = node;
@@ -110,16 +118,25 @@ class MUI_InputRouter : ScriptedWidgetEventHandler
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! True when gamepad / console is driving the menu. Pointer buttons must not
+	//! steal focus — MenuSelect is a click at a stale cursor (often the first tab).
+	protected bool IsGamepadMenu()
+	{
+		InputManager im = GetGame().GetInputManager();
+		if (!im)
+			return false;
+		return !im.IsUsingMouseAndKeyboard();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void UpdatePointer()
 	{
 		if (!m_Runtime)
 			return;
 
-		InputManager im = GetGame().GetInputManager();
-		if (im && !im.IsUsingMouseAndKeyboard())
+		if (IsGamepadMenu())
 		{
-			if (!m_Focused)
-				EnsureFocus();
+			EnsureFocus();
 			if (m_Hover && m_Hover != m_Focused)
 				m_Hover.SetHover(false);
 			m_Hover = m_Focused;
@@ -154,6 +171,8 @@ class MUI_InputRouter : ScriptedWidgetEventHandler
 			return false;
 		if (!m_Runtime)
 			return false;
+		if (IsGamepadMenu())
+			return true;
 
 		float lx;
 		float ly;
@@ -179,6 +198,12 @@ class MUI_InputRouter : ScriptedWidgetEventHandler
 			return false;
 		if (!m_Runtime)
 			return false;
+		if (IsGamepadMenu())
+		{
+			m_bDown = false;
+			m_Pressed = null;
+			return true;
+		}
 
 		float lx;
 		float ly;

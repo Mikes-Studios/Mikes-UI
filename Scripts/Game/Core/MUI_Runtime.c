@@ -129,6 +129,7 @@ class MUI_Runtime
 				Unmount();
 				return false;
 			}
+			m_Edit.BindPointerHandler(m_Input);
 
 			CreatePrompts();
 		}
@@ -158,6 +159,8 @@ class MUI_Runtime
 	//------------------------------------------------------------------------------------------------
 	void Unmount()
 	{
+		if (m_bInteractive && m_Edit && m_Input)
+			m_Edit.UnbindPointerHandler(m_Input);
 		if (m_bInteractive && m_Input && m_wHost)
 			m_wHost.RemoveHandler(m_Input);
 		if (m_Input)
@@ -230,6 +233,13 @@ class MUI_Runtime
 	}
 
 	//------------------------------------------------------------------------------------------------
+	void FocusNode(MUI_Node node)
+	{
+		if (m_Input)
+			m_Input.SetFocused(node);
+	}
+
+	//------------------------------------------------------------------------------------------------
 	MUI_Node GetRoot()
 	{
 		return m_Root;
@@ -264,7 +274,10 @@ class MUI_Runtime
 		if (m_bLayoutDirty)
 			Layout();
 		if (m_bInteractive && m_Edit)
+		{
+			m_Edit.Tick();
 			m_Edit.SyncLayout();
+		}
 		Paint();
 	}
 

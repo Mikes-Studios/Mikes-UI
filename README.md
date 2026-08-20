@@ -289,7 +289,7 @@ Focusables = visible, enabled, `m_Style.m_bInteractive`. `m_bBlockHit` eats hits
 
 - Mouse: hit-test, click, wheel on the nearest clip/scroll ancestor.
 - Gamepad: `MenuUp/Down/Left/Right/Select/Back`. Up/down by Y; left/right by X in the same row.
-- KBM: focusing a text field attaches the EditBox immediately. Gamepad: Select attaches.
+- KBM: focusing a text field attaches the hidden EditBox immediately. Gamepad: Select attaches. The EditBox is `IGNORE_CURSOR` so focusing one field does not trap mouse hits; clicking another field switches the bridge.
 - Back: stop editing first, else `GetOnBack()` (`OnMUIBack` on `MUI_MenuBase`).
 - Prompts: `runtime.SetPromptText(selectRichText, backRichText)`.
 

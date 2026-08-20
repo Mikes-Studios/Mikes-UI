@@ -51,6 +51,28 @@ class MUI_DropdownCatcher : MUI_Node
 }
 
 //------------------------------------------------------------------------------------------------
+class MUI_DropdownItemBind
+{
+	protected MUI_Dropdown m_Dropdown;
+	protected int m_iIndex;
+
+	//------------------------------------------------------------------------------------------------
+	void Init(MUI_Dropdown dropdown, int index)
+	{
+		m_Dropdown = dropdown;
+		m_iIndex = index;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void OnClicked()
+	{
+		if (!m_Dropdown)
+			return;
+		m_Dropdown.ChooseItem(m_iIndex);
+	}
+}
+
+//------------------------------------------------------------------------------------------------
 class MUI_Dropdown : MUI_Node
 {
 	protected static const int SCROLL_AFTER = 6;
@@ -58,6 +80,7 @@ class MUI_Dropdown : MUI_Node
 
 	protected ref array<string> m_aItems;
 	protected ref array<ref MUI_Button> m_aRows;
+	protected ref array<ref MUI_DropdownItemBind> m_aItemBinds;
 	protected ref ScriptInvoker m_OnChanged;
 	protected ref MUI_Button m_Header;
 	protected ref MUI_Node m_ListHost;
@@ -71,6 +94,7 @@ class MUI_Dropdown : MUI_Node
 	{
 		m_aItems = new array<string>();
 		m_aRows = new array<ref MUI_Button>();
+		m_aItemBinds = new array<ref MUI_DropdownItemBind>();
 		m_OnChanged = new ScriptInvoker();
 		m_iIndex = -1;
 		m_bOpen = false;
@@ -146,6 +170,13 @@ class MUI_Dropdown : MUI_Node
 	int GetIndex()
 	{
 		return m_iIndex;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void ChooseItem(int index)
+	{
+		SetIndex(index);
+		SetOpen(false);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -284,7 +315,10 @@ class MUI_Dropdown : MUI_Node
 				row.MakeAccent();
 			else
 				row.MakeDefault();
-			row.GetOnClicked().Insert(OnItemClicked);
+			ref MUI_DropdownItemBind bind = new MUI_DropdownItemBind();
+			bind.Init(this, i);
+			m_aItemBinds.Insert(bind);
+			row.GetOnClicked().Insert(bind.OnClicked);
 			m_aRows.Insert(row);
 			host.AddChild(row);
 		}
@@ -299,33 +333,8 @@ class MUI_Dropdown : MUI_Node
 			m_ListHost = null;
 		}
 		m_aRows.Clear();
-	}
-
-	//------------------------------------------------------------------------------------------------
-	protected void OnItemClicked()
-	{
-		int index = IndexOfActivated(m_aRows);
-		if (index < 0)
-			return;
-		SetIndex(index);
-		SetOpen(false);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	protected int IndexOfActivated(notnull array<ref MUI_Button> buttons)
-	{
-		int i;
-		for (i = 0; i < buttons.Count(); i++)
-		{
-			if (buttons[i] && buttons[i].IsFocused())
-				return i;
-		}
-		for (i = 0; i < buttons.Count(); i++)
-		{
-			if (buttons[i] && buttons[i].IsHover())
-				return i;
-		}
-		return -1;
+		if (m_aItemBinds)
+			m_aItemBinds.Clear();
 	}
 
 	//------------------------------------------------------------------------------------------------

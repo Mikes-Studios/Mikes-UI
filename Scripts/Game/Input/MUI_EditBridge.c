@@ -8,21 +8,31 @@
 //! Extend:
 //!   Custom fields: override WantsTextInput, GetEditText, SetEditTextFromBridge,
 //!   CommitEdit on your MUI_Node subclass. No Mikes-UI edits required.
+//!
+//! One shared EditBox serves every field. It is IGNORE_CURSOR so write-mode cannot
+//! steal hit-tests from the compositor. Switching fields commits in place (no hide)
+//! because OnWriteModeLeave from the previous session would otherwise Detach the
+//! newly attached node. SetFocused on an already-focused field must still BeginEditing.
 //------------------------------------------------------------------------------------------------
 class MUI_EditBridge : ScriptedWidgetEventHandler
 {
 	protected EditBoxWidget m_wEdit;
+	protected Widget m_wHost;
 	protected MUI_Node m_Node;
 	protected WorkspaceWidget m_Workspace;
 	protected string m_sAttachedText;
 	protected bool m_bEmptyPlaceholder;
 	protected bool m_bDetaching;
+	protected bool m_bAttaching;
+	protected int m_iSuppressLeave;
 
 	//------------------------------------------------------------------------------------------------
 	bool Create(notnull WorkspaceWidget workspace, notnull Widget parent)
 	{
 		m_Workspace = workspace;
-		Widget w = workspace.CreateWidget(WidgetType.EditBoxWidgetTypeID, WidgetFlags.VISIBLE, Color.FromInt(Color.WHITE), 20, parent);
+		m_wHost = parent;
+		int flags = WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR;
+		Widget w = workspace.CreateWidget(WidgetType.EditBoxWidgetTypeID, flags, Color.FromInt(Color.WHITE), 20, parent);
 		m_wEdit = EditBoxWidget.Cast(w);
 		if (!m_wEdit)
 		{
@@ -37,31 +47,87 @@ class MUI_EditBridge : ScriptedWidgetEventHandler
 	}
 
 	//------------------------------------------------------------------------------------------------
+	void BindPointerHandler(MUI_InputRouter input)
+	{
+		if (!m_wEdit)
+			return;
+		if (!input)
+			return;
+		m_wEdit.AddHandler(input);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void UnbindPointerHandler(MUI_InputRouter input)
+	{
+		if (!m_wEdit)
+			return;
+		if (!input)
+			return;
+		m_wEdit.RemoveHandler(input);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void Tick()
+	{
+		if (m_iSuppressLeave <= 0)
+			return;
+		m_iSuppressLeave = m_iSuppressLeave - 1;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void Attach(notnull MUI_Node node)
 	{
 		if (m_Node == node)
 		{
 			SyncLayout();
+			EnsureWriteMode();
 			return;
 		}
+
+		m_bAttaching = true;
+		m_iSuppressLeave = 2;
 		if (m_Node)
-			Detach();
+			CommitAttachedNode();
 
 		m_Node = node;
 		if (!m_wEdit)
+		{
+			m_bAttaching = false;
 			return;
+		}
 
 		m_sAttachedText = node.GetEditText();
 		m_bEmptyPlaceholder = m_sAttachedText.IsEmpty();
 		SyncLayout();
-		m_wEdit.SetVisible(true);
 		if (m_bEmptyPlaceholder)
 			m_wEdit.SetText(" ");
 		else
 			m_wEdit.SetText(m_sAttachedText);
+		EnsureWriteMode();
+		m_bAttaching = false;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void EnsureWriteMode()
+	{
+		if (!m_wEdit)
+			return;
+		m_iSuppressLeave = 2;
+		m_wEdit.SetVisible(true);
 		if (m_Workspace)
 			m_Workspace.SetFocusedWidget(m_wEdit);
 		m_wEdit.ActivateWriteMode();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void CommitAttachedNode()
+	{
+		if (!m_Node)
+			return;
+		if (!m_wEdit)
+			return;
+		m_Node.SetEditTextFromBridge(ReadEditText());
+		m_Node.CommitEdit();
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -99,11 +165,7 @@ class MUI_EditBridge : ScriptedWidgetEventHandler
 		if (m_bDetaching)
 			return;
 		m_bDetaching = true;
-		if (m_Node && m_wEdit)
-		{
-			m_Node.SetEditTextFromBridge(ReadEditText());
-			m_Node.CommitEdit();
-		}
+		CommitAttachedNode();
 		m_Node = null;
 		m_bEmptyPlaceholder = false;
 		m_sAttachedText = "";
@@ -112,6 +174,8 @@ class MUI_EditBridge : ScriptedWidgetEventHandler
 			m_wEdit.SetVisible(false);
 			m_wEdit.SetText(" ");
 		}
+		if (m_Workspace && m_wHost)
+			m_Workspace.SetFocusedWidget(m_wHost);
 		m_bDetaching = false;
 	}
 
@@ -141,6 +205,14 @@ class MUI_EditBridge : ScriptedWidgetEventHandler
 	//------------------------------------------------------------------------------------------------
 	override bool OnWriteModeLeave(Widget w)
 	{
+		if (m_bDetaching)
+			return false;
+		if (m_bAttaching)
+			return false;
+		if (m_iSuppressLeave > 0)
+			return false;
+		if (m_wEdit && m_wEdit.IsInWriteMode())
+			return false;
 		Detach();
 		return false;
 	}
@@ -155,6 +227,7 @@ class MUI_EditBridge : ScriptedWidgetEventHandler
 			m_wEdit.RemoveFromHierarchy();
 		}
 		m_wEdit = null;
+		m_wHost = null;
 		m_Workspace = null;
 	}
 }

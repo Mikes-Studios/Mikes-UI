@@ -1,0 +1,6 @@
+---
+description: Pointer to the living Enfusion/Enforce handbook. Update that file when an engine fact is proven.
+alwaysApply: true
+---
+
+Engine / Enforce / Enfusion knowledge lives in `F:\Mikes-Invade-and-Annex\.cursor\rules\enfusion-enforce.mdc`. When a fact is proven (compiler, crash, GameSources), add it there — not here.
