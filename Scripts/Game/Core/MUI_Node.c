@@ -6,8 +6,8 @@
 //!   Store every node you keep as `protected ref MUI_Button m_save;` (or local `ref`).
 //!   Parent with parent.AddChild(child). Rebuild lists with ClearChildren().
 //!   Size: SetWidth/SetHeight (Exact), SetFillWidth/SetFillHeight, SetHugWidth/SetHugHeight.
-//!   SetPadding, SetPaddingTRBL, SetGap, SetAlign(ax, ay), SetGrow, SetRadius, SetFill.
-//!   Intro: SetIntro(delay, duration, fromY). Paint must use DrawX/DrawY/GetDrawOpacity().
+//!   SetPadding, SetPaddingTRBL, SetGap, SetAlign(ax, ay), SetGrow, SetRadius, SetFill,
+//!   SetOpacity. Intro: SetIntro(delay, duration, fromY). Paint must use DrawX/DrawY/GetDrawOpacity().
 //!
 //! Layout:
 //!   Default Fill width, Hug height, StackVertical. Overlay children use SetAlign(0.5, 0.5)
@@ -55,6 +55,7 @@ class MUI_Node
 	protected float m_fDrawOX;
 	protected float m_fDrawOY;
 	protected float m_fDrawOpacity;
+	protected float m_fOpacity;
 	protected float m_fRipple;
 
 	//------------------------------------------------------------------------------------------------
@@ -66,6 +67,7 @@ class MUI_Node
 		m_bVisible = true;
 		m_bEnabled = true;
 		m_fIntro = 1;
+		m_fOpacity = 1;
 		m_fDrawOpacity = 1;
 	}
 
@@ -396,6 +398,26 @@ class MUI_Node
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Multiplies this node and its children. 1 = fully drawn, 0 = invisible.
+	void SetOpacity(float opacity)
+	{
+		if (opacity < 0)
+			opacity = 0;
+		if (opacity > 1)
+			opacity = 1;
+		if (Math.AbsFloat(m_fOpacity - opacity) < 0.002)
+			return;
+		m_fOpacity = opacity;
+		InvalidatePaint();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	float GetOpacity()
+	{
+		return m_fOpacity;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void SetFill(Color color)
 	{
 		m_Style.m_Fill = color;
@@ -715,7 +737,7 @@ class MUI_Node
 	{
 		m_fDrawOX = ox;
 		m_fDrawOY = oy;
-		m_fDrawOpacity = parentOpacity * m_fIntro;
+		m_fDrawOpacity = parentOpacity * m_fIntro * m_fOpacity;
 		if (m_fDrawOpacity < 0)
 			m_fDrawOpacity = 0;
 		if (m_fDrawOpacity > 1)

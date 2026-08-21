@@ -4,7 +4,7 @@
 //! Consumer:
 //!   MUI_Surface s = runtime.CreateSurface("panel");
 //!   s.SetWidth(560); s.SetPadding(24); s.SetFill(theme.Panel);
-//!   s.SetBlurEnabled(true); // optional frost behind fill
+//!   s.SetBlurEnabled(true); // optional frost behind fill; follows GetDrawOpacity()
 //!
 //! Layout:
 //!   Exact width (you set), Hug height, StackVertical. For uplink chrome use CreateCard.
@@ -112,6 +112,7 @@ class MUI_Surface : MUI_Panel
 		FrameSlot.SetAnchorMax(m_wBlur, 0, 0);
 		FrameSlot.SetPos(m_wBlur, x, y);
 		FrameSlot.SetSize(m_wBlur, w, h);
+		m_wBlur.SetOpacity(op);
 		m_wBlur.SetIntensity(m_fBlurIntensity * op);
 		float soft = m_Style.m_fRadius;
 		if (soft < 8)

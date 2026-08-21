@@ -3,7 +3,9 @@
 //!
 //! Consumer:
 //!   You receive this in Paint / PaintForeground. Draw in layout pixels:
-//!   FillRect, StrokeRect, DrawLine, FillCircle, StrokeCircle, DrawArc, FillGradientV, DrawText.
+//!   FillRect, StrokeRect, DrawLine, FillCircle, StrokeCircle, DrawArc, FillPolygon,
+//!   StrokePolyline, FillGradientV, DrawText (plain=true skips outline/shadow and
+//!   uses full sharpness for HUD micro-type).
 //!   Colors: MUI_ColorUtil.Fade(token, GetDrawOpacity()). Radius == half short side collapses
 //!   the tessellator — CanvasRenderer clamps; still avoid pill radius == height/2 on thin bars.
 //!
@@ -268,6 +270,70 @@ class MUI_RenderSurface
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Layout-space vertices [x0,y0,x1,y1,…]. Copied into pixel space; caller may reuse its array.
+	void FillPolygon(array<float> verts, Color color)
+	{
+		if (!m_wCanvas || !color || !verts)
+			return;
+		ref array<float> px = CopyVertsToPx(verts);
+		if (!px)
+			return;
+		MUI_CanvasRenderer.AddFillPolygon(m_aCommands, px, color.PackToInt());
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void StrokePolyline(array<float> verts, Color color, float width, bool enclose)
+	{
+		if (!m_wCanvas || !color || !verts)
+			return;
+		if (width <= 0)
+			return;
+		ref array<float> px = CopyVertsToPx(verts);
+		if (!px)
+			return;
+		MUI_CanvasRenderer.AddPolyline(m_aCommands, px, color.PackToInt(), Px(width), enclose);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected array<float> CopyVertsToPx(array<float> verts)
+	{
+		int count = verts.Count();
+		if (count < 4)
+			return null;
+		if ((count % 2) != 0)
+			return null;
+
+		float minX = verts[0];
+		float maxX = verts[0];
+		float minY = verts[1];
+		float maxY = verts[1];
+		int i;
+		for (i = 2; i < count; i = i + 2)
+		{
+			float vx = verts[i];
+			float vy = verts[i + 1];
+			if (vx < minX)
+				minX = vx;
+			if (vx > maxX)
+				maxX = vx;
+			if (vy < minY)
+				minY = vy;
+			if (vy > maxY)
+				maxY = vy;
+		}
+		if (IsFullyOutsideClip(minX, minY, maxX - minX, maxY - minY))
+			return null;
+
+		ref array<float> px = new array<float>();
+		for (i = 0; i < count; i = i + 2)
+		{
+			px.Insert(Px(verts[i] - m_Origin.m_fX));
+			px.Insert(Px(verts[i + 1] - m_Origin.m_fY));
+		}
+		return px;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	void FillGradientV(float x, float y, float w, float h, Color top, Color bot, int slices)
 	{
 		if (!m_wCanvas || !top || !bot)
@@ -290,13 +356,13 @@ class MUI_RenderSurface
 	}
 
 	//------------------------------------------------------------------------------------------------
-	void DrawText(float x, float y, float w, float h, string text, int fontSize, Color color, bool bold, bool center, bool vCenter, bool wrap)
+	void DrawText(float x, float y, float w, float h, string text, int fontSize, Color color, bool bold, bool center, bool vCenter, bool wrap, bool plain = false)
 	{
 		if (!color)
 			return;
 		if (IsFullyOutsideClip(x, y, w, h))
 			return;
-		m_Text.Add(x - m_Origin.m_fX, y - m_Origin.m_fY, w, h, text, fontSize, color.PackToInt(), bold, center, vCenter, wrap);
+		m_Text.Add(x - m_Origin.m_fX, y - m_Origin.m_fY, w, h, text, fontSize, color.PackToInt(), bold, center, vCenter, wrap, plain);
 	}
 
 	//------------------------------------------------------------------------------------------------

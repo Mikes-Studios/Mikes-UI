@@ -456,7 +456,7 @@ class MUI_Runtime
 			node.Paint(surface);
 
 		float childOy = oy + node.GetSlideY();
-		float childOp = opacity * node.GetIntro();
+		float childOp = opacity * node.GetIntro() * node.GetOpacity();
 
 		if (paintSelf && node.ClipsChildren())
 		{

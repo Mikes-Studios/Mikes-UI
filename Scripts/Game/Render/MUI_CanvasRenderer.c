@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-//! Tessellates rects/circles/arcs into CanvasWidgetCommand. Internal — call via MUI_RenderSurface.
+//! Tessellates rects/circles/arcs/polygons into CanvasWidgetCommand. Internal — call via MUI_RenderSurface.
 //! Degenerate polygons: radius is clamped to min(w,h)*0.5-1; tiny fills (w/h < 0.75) are skipped.
 //------------------------------------------------------------------------------------------------
 class MUI_CanvasRenderer
@@ -151,6 +151,36 @@ class MUI_CanvasRenderer
 		line.m_Vertices = BuildCircleVertices(cx, cy, r, startDeg, sweepDeg, segs, false);
 		if (!line.m_Vertices || line.m_Vertices.Count() < 4)
 			return;
+		commands.Insert(line);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	static void AddFillPolygon(notnull array<ref CanvasWidgetCommand> commands, array<float> verts, int color)
+	{
+		if (!IsSolidPolygon(verts))
+			return;
+
+		ref PolygonDrawCommand poly = new PolygonDrawCommand();
+		poly.m_iColor = color;
+		poly.m_Vertices = verts;
+		commands.Insert(poly);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	static void AddPolyline(notnull array<ref CanvasWidgetCommand> commands, array<float> verts, int color, float width, bool enclose)
+	{
+		if (!verts)
+			return;
+		if (verts.Count() < 4)
+			return;
+		if (width <= 0)
+			return;
+
+		ref LineDrawCommand line = new LineDrawCommand();
+		line.m_iColor = color;
+		line.m_fWidth = width;
+		line.m_bShouldEnclose = enclose;
+		line.m_Vertices = verts;
 		commands.Insert(line);
 	}
 

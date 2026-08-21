@@ -1,6 +1,8 @@
 //------------------------------------------------------------------------------------------------
 //! Pooled TextWidgets for bitmap .fnt (Roboto Condensed). Internal — DrawText on the surface.
 //! Sizes: MUI_Theme.FONT_TITLE 32, FONT_BODY 20, FONT_SMALL 16. Bold = bold font file, not SetBold.
+//! DrawText(..., wrap, plain) — plain skips outline/shadow and uses full sharpness so
+//! HUD micro-type stays crisp. Menu type keeps a 0.35 sharpness multiplier.
 //------------------------------------------------------------------------------------------------
 class MUI_TextItem
 {
@@ -15,12 +17,16 @@ class MUI_TextItem
 	bool m_bCenter;
 	bool m_bVCenter;
 	bool m_bWrap;
+	bool m_bPlain;
 }
 
 //------------------------------------------------------------------------------------------------
 //! Internal text pool. Consumers call surface.DrawText, not this class.
 class MUI_TextRenderer
 {
+	protected static const float SHARPNESS_MENU = 0.35;
+	protected static const float SHARPNESS_PLAIN = 1.0;
+
 	protected ref array<ref MUI_TextItem> m_aItems;
 	protected ref array<TextWidget> m_aPool;
 	protected Widget m_wLayer;
@@ -62,7 +68,7 @@ class MUI_TextRenderer
 	}
 
 	//------------------------------------------------------------------------------------------------
-	void Add(float x, float y, float w, float h, string text, int fontSize, int color, bool bold, bool center, bool vCenter, bool wrap)
+	void Add(float x, float y, float w, float h, string text, int fontSize, int color, bool bold, bool center, bool vCenter, bool wrap, bool plain)
 	{
 		if (text == "")
 			return;
@@ -78,6 +84,7 @@ class MUI_TextRenderer
 		item.m_bCenter = center;
 		item.m_bVCenter = vCenter;
 		item.m_bWrap = wrap;
+		item.m_bPlain = plain;
 		m_aItems.Insert(item);
 	}
 
@@ -107,9 +114,18 @@ class MUI_TextRenderer
 			tw.SetDesiredFontSize(item.m_iFontSize);
 			tw.SetMinFontSize(item.m_iFontSize);
 			tw.SetExactFontSize(item.m_iFontSize);
-			tw.SetSharpness(0.35);
-			tw.SetOutline(1, 0xB0141410);
-			tw.SetShadow(2, 0xA0000000, 1, 0, 1);
+			if (item.m_bPlain)
+			{
+				tw.SetSharpness(SHARPNESS_PLAIN);
+				tw.SetOutline(0, 0);
+				tw.SetShadow(0, 0, 0, 0, 0);
+			}
+			else
+			{
+				tw.SetSharpness(SHARPNESS_MENU);
+				tw.SetOutline(1, 0xB0141410);
+				tw.SetShadow(2, 0xA0000000, 1, 0, 1);
+			}
 			tw.SetColorInt(item.m_iColor);
 			tw.SetTextWrapping(item.m_bWrap);
 
