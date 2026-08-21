@@ -1,7 +1,7 @@
 GameProject {
- ID "MikesUI"
- GUID "B3F91C6A4E275D08"
- TITLE "Mike's UI"
+ ID "MikesUIExp"
+ GUID "7A4E19C2D8B063F5"
+ TITLE "Mike's UI (Experimental)"
  Dependencies {
   "58D0FB3206B6F859"
  }
