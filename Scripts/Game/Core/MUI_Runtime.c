@@ -845,45 +845,46 @@ class MUI_Runtime
 		m_wMeasure.SetDesiredFontSize(fontSize);
 		m_wMeasure.SetMinFontSize(fontSize);
 		m_wMeasure.SetSharpness(0.35);
-		MUI_TextUtil.SetLiteral(m_wMeasure, text);
 
+		// One-line sample first. GetTextSize/GetNumLines on a reused TextWidget
+		// keep the previous string's height, and unwrapped height already includes
+		// `\n` so multiplying that by line count leaves blank rows after the text shrinks.
 		m_wMeasure.ClearFlags(WidgetFlags.WRAP_TEXT);
 		m_wMeasure.SetTextWrapping(false);
 		FrameSlot.SetSize(m_wMeasure, 8000, 64);
+		MUI_TextUtil.SetLiteral(m_wMeasure, "Ag");
+		m_wMeasure.Update();
+		float sampleW;
+		float lineH;
+		m_wMeasure.GetTextSize(sampleW, lineH);
+		if (lineH < fontSize)
+			lineH = fontSize;
+
+		MUI_TextUtil.SetLiteral(m_wMeasure, text);
 		m_wMeasure.Update();
 		float unW;
-		float unH;
-		m_wMeasure.GetTextSize(unW, unH);
-		if (unH < fontSize)
-			unH = fontSize;
+		float unusedH;
+		m_wMeasure.GetTextSize(unW, unusedH);
+		if (unW < 1)
+			unW = sampleW;
 
+		int lines;
 		if (wrapWidth <= 0)
-		{
-			w = unW;
-			h = unH;
-			return;
-		}
-
-		m_wMeasure.SetTextWrapping(true);
-		m_wMeasure.SetFlags(WidgetFlags.WRAP_TEXT);
-		FrameSlot.SetSize(m_wMeasure, wrapWidth, 2000);
-		m_wMeasure.Update();
-		m_wMeasure.GetTextSize(w, h);
-
-		int lines = m_wMeasure.GetNumLines();
-		int estimated = EstimateWrappedLineCount(text, unW, wrapWidth);
-		if (lines < estimated)
-			lines = estimated;
+			lines = EstimateWrappedLineCount(text, unW, 8000);
+		else
+			lines = EstimateWrappedLineCount(text, unW, wrapWidth);
 		if (lines < 1)
 			lines = 1;
 
-		float wrappedH = unH * lines;
-		if (h < wrappedH)
-			h = wrappedH;
-		if (w < 1)
+		h = lineH * lines;
+		if (wrapWidth <= 0)
+			w = unW;
+		else if (unW < 1)
 			w = wrapWidth;
-		else if (w > wrapWidth)
+		else if (unW > wrapWidth)
 			w = wrapWidth;
+		else
+			w = unW;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -900,7 +901,7 @@ class MUI_Runtime
 
 		float avgChar = unwrappedW / textLen;
 		array<string> paragraphs = new array<string>();
-		text.Split("\n", paragraphs, true);
+		text.Split("\n", paragraphs, false);
 		if (paragraphs.IsEmpty())
 			paragraphs.Insert(text);
 
@@ -908,6 +909,8 @@ class MUI_Runtime
 		int p;
 		for (p = 0; p < paragraphs.Count(); p++)
 		{
+			if (paragraphs[p].IsEmpty())
+				continue;
 			total = total + CountWordWrappedLines(paragraphs[p], wrapWidth, avgChar);
 		}
 		if (total < 1)
