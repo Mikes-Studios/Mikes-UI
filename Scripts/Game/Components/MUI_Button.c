@@ -10,6 +10,7 @@
 //! Layout:
 //!   Hug width, Exact height 44, Grow 1 (equal share in a row).
 //!   Do NOT SetFillWidth() in a row — each button would measure as 100% of the row.
+//!   SetCompact() for chip / picker rows (28 tall, FONT_SMALL).
 //------------------------------------------------------------------------------------------------
 class MUI_Button : MUI_Node
 {
@@ -17,6 +18,7 @@ class MUI_Button : MUI_Node
 	protected ref ScriptInvoker m_OnClicked;
 	protected bool m_bAccent;
 	protected bool m_bDanger;
+	protected bool m_bCompact;
 
 	//------------------------------------------------------------------------------------------------
 	void MUI_Button()
@@ -41,7 +43,10 @@ class MUI_Button : MUI_Node
 	//------------------------------------------------------------------------------------------------
 	override void ApplyTheme(notnull MUI_ThemeData theme)
 	{
-		m_Style.m_iFontSize = theme.FONT_BODY;
+		if (m_bCompact)
+			m_Style.m_iFontSize = theme.FONT_SMALL;
+		else
+			m_Style.m_iFontSize = theme.FONT_BODY;
 		m_Style.m_Text = theme.Text;
 		if (m_bDanger)
 		{
@@ -104,6 +109,20 @@ class MUI_Button : MUI_Node
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Chip-sized control for always-visible picker rows. Call after MakeAccent / MakeDefault.
+	void SetCompact()
+	{
+		m_bCompact = true;
+		m_Style.m_fHeight = 28;
+		m_Style.m_fMinHeight = 28;
+		m_Style.m_fMinWidth = 52;
+		m_Style.m_fRadius = 6;
+		ApplyTheme(GetTheme());
+		InvalidateLayout();
+		InvalidatePaint();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	ScriptInvoker GetOnClicked()
 	{
 		return m_OnClicked;
@@ -137,7 +156,10 @@ class MUI_Button : MUI_Node
 	{
 		float hover = GetHoverT();
 		float press = GetPressT();
-		float lift = hover * 3.0 - press * 2.0;
+		float liftAmt = 3.0;
+		if (m_bCompact)
+			liftAmt = 1.0;
+		float lift = hover * liftAmt - press * 2.0;
 		float x = DrawX();
 		float y = DrawY() - lift;
 		float w = m_World.m_fW;
@@ -151,7 +173,12 @@ class MUI_Button : MUI_Node
 		MUI_ThemeData theme = GetTheme();
 		float glow = hover * 0.28 + 0.08 * MUI_Ease.Pulse(GetTime(), 1.1);
 		if (m_bAccent || m_bDanger)
-			surface.FillRect(x - 3, y - 3, w + 6, h + 6, MUI_ColorUtil.Fade(fill, op * glow), rad + 2);
+		{
+			float pad = 3;
+			if (m_bCompact)
+				pad = 1;
+			surface.FillRect(x - pad, y - pad, w + pad * 2, h + pad * 2, MUI_ColorUtil.Fade(fill, op * glow), rad + 2);
+		}
 
 		surface.FillRect(x, y, w, h, MUI_ColorUtil.Fade(fill, op), rad);
 		surface.StrokeRect(x, y, w, h, MUI_ColorUtil.Fade(theme.Sheen, op * (0.15 + hover * 0.4)), 1.2, rad);
