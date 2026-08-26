@@ -110,7 +110,7 @@ class MyMenu : MUI_MenuBase
 		card.SetIntro(0.06, 0.55, 46);
 
 		ref MUI_LiveHeader header = runtime.CreateLiveHeader("MY MENU", "header");
-		header.SetKicker("MY MOD  //  UPLINK");
+		header.SetKicker("MY MOD");
 
 		m_Name = runtime.CreateTextField("Callsign", "name");
 

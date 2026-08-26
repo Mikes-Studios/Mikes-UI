@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-//! Wrapped text. Hug height from MeasureText.
+//! Wrapped text. Hug height is one line-height times the wrapped line count.
 //!
 //! Consumer:
 //!   MUI_Label l = runtime.CreateLabel("Hello", "hello");

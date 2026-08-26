@@ -3,7 +3,7 @@
 //!
 //! Consumer:
 //!   MUI_LiveHeader h = runtime.CreateLiveHeader("ADMIN CONFIG", "header");
-//!   h.SetKicker("COMMAND UPLINK  //  SECTOR IA");
+//!   h.SetKicker("COMMAND UPLINK");
 //!
 //! Layout:
 //!   Fill width, Exact height 58. For a plain title use MUI_Label instead.

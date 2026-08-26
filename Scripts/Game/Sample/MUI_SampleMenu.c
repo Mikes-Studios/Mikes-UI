@@ -69,7 +69,7 @@ class MUI_SampleMenu : MUI_MenuBase
 		card.SetIntro(0.06, 0.55, 46);
 
 		ref MUI_LiveHeader liveHeader = runtime.CreateLiveHeader("SAMPLE CATALOG", "liveHeader");
-		liveHeader.SetKicker("MIKE'S UI  //  0.2.0");
+		liveHeader.SetKicker("VERSION 0.2.0");
 		liveHeader.SetIntro(0.16, 0.4, 18);
 
 		ref MUI_Label subtitle = runtime.CreateLabel("Subclass MUI_MenuBase in your addon. Skin factories keep their uplink look.", "subtitle");
@@ -89,7 +89,7 @@ class MUI_SampleMenu : MUI_MenuBase
 		surface.SetBlurEnabled(true);
 
 		ref MUI_Header plainHeader = runtime.CreateHeader("PRIMITIVES", "plainHeader");
-		plainHeader.SetKicker("SURFACE  //  HEADER  //  DIVIDER");
+		plainHeader.SetKicker("SURFACE, HEADER, DIVIDER");
 
 		ref MUI_Divider div = runtime.CreateDivider("div");
 
@@ -222,7 +222,7 @@ class MUI_SampleMenu : MUI_MenuBase
 		if (!m_Status)
 			return;
 
-		string name = "—";
+		string name = "-";
 		if (m_NameField)
 			name = m_NameField.GetText();
 
@@ -230,18 +230,18 @@ class MUI_SampleMenu : MUI_MenuBase
 		if (m_ReadyToggle && m_ReadyToggle.IsChecked())
 			ready = "READY";
 
-		string tab = "—";
+		string tab = "-";
 		if (m_Tabs)
 			tab = m_Tabs.GetTabLabel(m_Tabs.GetIndex());
 
-		string drop = "—";
+		string drop = "-";
 		if (m_Dropdown)
 			drop = m_Dropdown.GetText();
 
-		string num = "—";
+		string num = "-";
 		if (m_Numeric)
 			num = m_Numeric.GetText();
 
-		m_Status.SetText("UPLINK  " + name + "  //  " + ready + "  //  " + tab + "  //  " + drop + "  //  " + num);
+		m_Status.SetText("UPLINK  " + name + "  |  " + ready + "  |  " + tab + "  |  " + drop + "  |  " + num);
 	}
 }

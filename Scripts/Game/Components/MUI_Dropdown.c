@@ -106,7 +106,7 @@ class MUI_Dropdown : MUI_Node
 		m_Style.m_Fill = Color.FromInt(0);
 
 		m_Header = new MUI_Button();
-		m_Header.SetText("—");
+		m_Header.SetText("-");
 		m_Header.SetName("dd_header");
 		m_Header.GetStyle().m_fGrow = 0;
 		m_Header.GetOnClicked().Insert(OnHeaderClicked);
@@ -251,7 +251,7 @@ class MUI_Dropdown : MUI_Node
 	{
 		if (!m_Header)
 			return;
-		string label = "—";
+		string label = "-";
 		if (m_iIndex >= 0 && m_iIndex < m_aItems.Count())
 			label = m_aItems[m_iIndex];
 		m_Header.SetText(label);
