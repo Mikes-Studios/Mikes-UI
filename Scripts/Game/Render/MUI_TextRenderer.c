@@ -129,7 +129,7 @@ class MUI_TextRenderer
 			tw.SetColorInt(item.m_iColor);
 			tw.SetTextWrapping(item.m_bWrap);
 
-			int flags = WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.INHERIT_CLIPPING;
+			int flags = WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.INHERIT_CLIPPING | WidgetFlags.NO_LOCALIZATION;
 			if (item.m_bCenter)
 				flags = flags | WidgetFlags.CENTER;
 			if (item.m_bVCenter)
@@ -158,7 +158,7 @@ class MUI_TextRenderer
 	{
 		while (m_aPool.Count() < needed)
 		{
-			Widget w = m_Workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.INHERIT_CLIPPING, Color.FromInt(Color.WHITE), 0, m_wLayer);
+			Widget w = m_Workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.INHERIT_CLIPPING | WidgetFlags.NO_LOCALIZATION, Color.FromInt(Color.WHITE), 0, m_wLayer);
 			TextWidget tw = TextWidget.Cast(w);
 			if (!tw)
 			{
