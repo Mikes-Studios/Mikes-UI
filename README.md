@@ -213,6 +213,7 @@ All `Create*` methods `Retain` the node (GC root until `Unmount`).
 | `CreateSlider` | Drag + gamepad left/right. `SetRange` `SetValue` `GetOnChanged()` |
 | `CreateTabs` | Segmented tab bar. `AddTab` `SetIndex` `GetOnChanged()` |
 | `CreateDropdown` | In-flow list + overlay catcher. `AddItem` `SetIndex` `GetText` |
+| `CreateHintLayer` | Tutorial overlay. `AddHint` `Open` `Toggle`. Last child of the root overlay |
 | `Adopt` | Your `MUI_Node` subclass |
 
 ---
@@ -290,8 +291,26 @@ Focusables = visible, enabled, `m_Style.m_bInteractive`. `m_bBlockHit` eats hits
 - Mouse: hit-test, click, wheel on the nearest clip/scroll ancestor.
 - Gamepad: `MenuUp/Down/Left/Right/Select/Back`. Up/down by Y; left/right by X in the same row.
 - KBM: focusing a text field attaches the hidden EditBox immediately. Gamepad: Select attaches. The EditBox is `IGNORE_CURSOR` so focusing one field does not trap mouse hits; clicking another field switches the bridge.
-- Back: stop editing first, else `GetOnBack()` (`OnMUIBack` on `MUI_MenuBase`).
+- Back: stop editing first, else dismiss a runtime modal (`HandleDismiss`), else `GetOnBack()` (`OnMUIBack` on `MUI_MenuBase`).
 - Prompts: `runtime.SetPromptText(selectRichText, backRichText)`.
+
+---
+
+## Hint overlays
+
+One overlay per screen that rings every currently visible registered control and lists them in a legend. Not a Next/Back walkthrough. Copy lives in your menu.
+
+```
+m_Hints = runtime.CreateHintLayer("hints");
+m_Hints.AddHint(m_NameField, "Callsign", "Player name used on the uplink.");
+helpBtn.GetOnClicked().Insert(OnHelp); // m_Hints.Toggle()
+overlay.AddChild(fx);
+overlay.AddChild(card);
+overlay.AddChild(m_Hints); // last = on top
+runtime.SetRoot(overlay);
+```
+
+Hidden tab pages (`SetVisible(false)`) drop out of the overlay automatically. Canvas cannot punch holes, so the dim is full-screen with accent rings. Back closes the overlay before it closes the menu (`runtime.SetModal`).
 
 ---
 
@@ -324,7 +343,7 @@ Scripts/Game/
   Components/ Panel, Label, Button, Toggle, TextField, NumericField,
               ScrollView, Row, Spacer, Surface, Header, Divider,
               Card, FxBackdrop, LiveHeader, Hairline,
-              Image, Progress, Slider, Tabs, Dropdown
+              Image, Progress, Slider, Tabs, Dropdown, HintLayer
   Layout/     Overlay / stacks / Fill-Hug-Exact
   Render/     Canvas + text pool
   Input/      Mouse, gamepad, EditBox bridge, drag

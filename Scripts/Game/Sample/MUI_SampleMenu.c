@@ -39,6 +39,7 @@ class MUI_SampleMenu : MUI_MenuBase
 	protected ref MUI_Tabs m_Tabs;
 	protected ref MUI_Dropdown m_Dropdown;
 	protected ref MUI_Label m_Status;
+	protected ref MUI_HintLayer m_Hints;
 
 	//------------------------------------------------------------------------------------------------
 	override string GetMUILogTag()
@@ -182,10 +183,14 @@ class MUI_SampleMenu : MUI_MenuBase
 		ref MUI_Row buttons = runtime.CreateRow("buttons");
 		buttons.SetGap(12);
 
+		ref MUI_Button helpBtn = runtime.CreateButton("Help", "help");
+		helpBtn.GetOnClicked().Insert(OnSampleHelp);
+
 		ref MUI_Button okBtn = runtime.CreateButton("Close", "ok");
 		okBtn.MakeAccent();
 		okBtn.GetOnClicked().Insert(OnMUIBack);
 
+		buttons.AddChild(helpBtn);
 		buttons.AddChild(okBtn);
 
 		card.AddChild(liveHeader);
@@ -195,11 +200,29 @@ class MUI_SampleMenu : MUI_MenuBase
 		card.AddChild(lineB);
 		card.AddChild(buttons);
 
+		m_Hints = runtime.CreateHintLayer("hints");
+		m_Hints.AddHint(surface, "Primitives", "CreateSurface honors SetFill. CreateCard keeps the uplink chrome.");
+		m_Hints.AddHint(m_NameField, "Callsign", "Text field with IME. GetOnChanged fires when SetText commits.");
+		m_Hints.AddHint(m_ReadyToggle, "Ready", "Gamepad left/right flips the toggle.");
+		m_Hints.AddHint(m_Numeric, "Numeric", "Typed float with SetRange / SetStep. Left/right steps the value.");
+		m_Hints.AddHint(m_Slider, "Slider", "Drag or gamepad left/right. This sample mirrors the value into Progress.");
+		m_Hints.AddHint(m_Tabs, "Tabs", "Segmented bar. AddTab / SetIndex / GetOnChanged.");
+		m_Hints.AddHint(m_Dropdown, "Dropdown", "In-flow list plus an outside-click catcher.");
+		m_Hints.AddHint(badgeRow, "Custom node", "runtime.Adopt your MUI_Node subclass, then AddChild.");
+
 		overlay.AddChild(fx);
 		overlay.AddChild(card);
+		overlay.AddChild(m_Hints);
 		runtime.SetRoot(overlay);
 
 		RefreshStatus();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void OnSampleHelp()
+	{
+		if (m_Hints)
+			m_Hints.Toggle();
 	}
 
 	//------------------------------------------------------------------------------------------------

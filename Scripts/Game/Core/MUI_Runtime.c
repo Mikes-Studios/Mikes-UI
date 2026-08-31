@@ -9,6 +9,7 @@
 //!   // Create* factories; every kept node is `protected ref`
 //!   m_Runtime.SetRoot(overlay);
 //!   m_Runtime.GetOnBack().Insert(OnClose);
+//!   SetModal(hintLayer) traps focus and makes Back call HandleDismiss first.
 //!   each frame: m_Runtime.Tick(dt);
 //!   close: Unmount, RemoveFromHierarchy host
 //!
@@ -32,6 +33,7 @@ class MUI_Runtime
 	protected ref MUI_InputRouter m_Input;
 	protected ref MUI_EditBridge m_Edit;
 	protected ref ScriptInvoker m_OnBack;
+	protected MUI_Node m_Modal;
 	protected Widget m_wPromptRoot;
 	protected RichTextWidget m_wPromptSelect;
 	protected RichTextWidget m_wPromptBack;
@@ -203,6 +205,7 @@ class MUI_Runtime
 		m_wMeasure = null;
 
 		m_Root = null;
+		m_Modal = null;
 		m_wHost = null;
 		m_Workspace = null;
 		m_bMounted = false;
@@ -720,8 +723,28 @@ class MUI_Runtime
 	//------------------------------------------------------------------------------------------------
 	void RequestBack()
 	{
+		if (m_Modal && m_Modal.IsVisible())
+		{
+			if (m_Modal.HandleDismiss())
+				return;
+		}
 		if (m_OnBack)
 			m_OnBack.Invoke();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! One-deep focus trap. Hint overlays call this on Open / Close.
+	void SetModal(MUI_Node node)
+	{
+		m_Modal = node;
+		if (m_Input)
+			m_Input.SetFocused(null);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	MUI_Node GetModal()
+	{
+		return m_Modal;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -733,7 +756,10 @@ class MUI_Runtime
 	//------------------------------------------------------------------------------------------------
 	void CollectFocusables(notnull array<MUI_Node> list)
 	{
-		CollectFocusablesNode(m_Root, list);
+		if (m_Modal && m_Modal.IsVisible())
+			CollectFocusablesNode(m_Modal, list);
+		else
+			CollectFocusablesNode(m_Root, list);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1150,5 +1176,13 @@ class MUI_Runtime
 		ref MUI_Dropdown dropdown = new MUI_Dropdown();
 		FinishCreate(dropdown, name);
 		return dropdown;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	MUI_HintLayer CreateHintLayer(string name = "")
+	{
+		ref MUI_HintLayer layer = new MUI_HintLayer();
+		FinishCreate(layer, name);
+		return layer;
 	}
 }

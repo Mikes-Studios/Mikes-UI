@@ -21,6 +21,7 @@
 //!   GetEditText, SetEditTextFromBridge, CommitEdit. D-pad left/right: override HandleNavAxis.
 //!   Host widgets (blur, image): override SyncHostWidgets / DestroyHostWidgets.
 //!   Overlay catchers that click but must not take d-pad: override WantsFocus to false.
+//!   Modal overlays (hint layer): override HandleDismiss so Back closes the overlay, not the menu.
 //------------------------------------------------------------------------------------------------
 class MUI_Node
 {
@@ -845,6 +846,13 @@ class MUI_Node
 		PlayRipple();
 		OnClicked();
 		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Runtime modal Back. Return true if this node consumed dismiss (hint overlay).
+	bool HandleDismiss()
+	{
+		return false;
 	}
 
 	//------------------------------------------------------------------------------------------------
