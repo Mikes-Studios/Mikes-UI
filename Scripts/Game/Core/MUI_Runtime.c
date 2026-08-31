@@ -136,7 +136,7 @@ class MUI_Runtime
 			CreatePrompts();
 		}
 
-		Widget measureW = m_Workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR, Color.FromInt(Color.WHITE), 0, m_wHost);
+		Widget measureW = m_Workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NO_LOCALIZATION, Color.FromInt(Color.WHITE), 0, m_wHost);
 		m_wMeasure = TextWidget.Cast(measureW);
 		if (m_wMeasure)
 		{
@@ -790,9 +790,9 @@ class MUI_Runtime
 		FrameSlot.SetPos(m_wPromptRoot, 0, -18);
 		FrameSlot.SetSize(m_wPromptRoot, 420, 40);
 
-		Widget selW = m_Workspace.CreateWidget(WidgetType.RichTextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.CENTER | WidgetFlags.VCENTER, Color.FromInt(Color.WHITE), 0, m_wPromptRoot);
+		Widget selW = m_Workspace.CreateWidget(WidgetType.RichTextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.CENTER | WidgetFlags.VCENTER | WidgetFlags.NO_LOCALIZATION, Color.FromInt(Color.WHITE), 0, m_wPromptRoot);
 		m_wPromptSelect = RichTextWidget.Cast(selW);
-		Widget backW = m_Workspace.CreateWidget(WidgetType.RichTextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.CENTER | WidgetFlags.VCENTER, Color.FromInt(Color.WHITE), 0, m_wPromptRoot);
+		Widget backW = m_Workspace.CreateWidget(WidgetType.RichTextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.CENTER | WidgetFlags.VCENTER | WidgetFlags.NO_LOCALIZATION, Color.FromInt(Color.WHITE), 0, m_wPromptRoot);
 		m_wPromptBack = RichTextWidget.Cast(backW);
 
 		StylePrompt(m_wPromptSelect, m_sPromptSelect);
@@ -825,10 +825,7 @@ class MUI_Runtime
 		tw.SetOutline(1, 0xB0141410);
 		tw.SetShadow(2, 0xA0000000, 1, 0, 1);
 		tw.SetColor(theme.Text);
-		if (text.IsEmpty())
-			tw.SetTextFormat("%1", " ");
-		else
-			tw.SetTextFormat("%1", text);
+		MUI_TextUtil.SetLiteral(tw, text);
 	}
 
 	//------------------------------------------------------------------------------------------------

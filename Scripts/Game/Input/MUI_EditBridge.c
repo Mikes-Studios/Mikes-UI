@@ -31,7 +31,7 @@ class MUI_EditBridge : ScriptedWidgetEventHandler
 	{
 		m_Workspace = workspace;
 		m_wHost = parent;
-		int flags = WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR;
+		int flags = WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NO_LOCALIZATION;
 		Widget w = workspace.CreateWidget(WidgetType.EditBoxWidgetTypeID, flags, Color.FromInt(Color.WHITE), 20, parent);
 		m_wEdit = EditBoxWidget.Cast(w);
 		if (!m_wEdit)

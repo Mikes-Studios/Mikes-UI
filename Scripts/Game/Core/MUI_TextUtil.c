@@ -1,6 +1,8 @@
 //------------------------------------------------------------------------------------------------
-//! TextWidget.SetText() treats the value as a string-table ID. Numbers ("1") and empty
-//! strings spam "Missing string ID" every paint. Always set literal UI text through here.
+//! TextWidget.SetText() treats the value as a string-table ID. Numbers ("1"), empty
+//! strings, and ranking prefixes ("#1") spam "Missing string ID" every paint.
+//! SetTextFormat("%1", text) still localizes a #param, and with NO_LOCALIZATION it
+//! paints the format string itself. Stamp the flag, then SetText the literal.
 //------------------------------------------------------------------------------------------------
 class MUI_TextUtil
 {
@@ -9,11 +11,12 @@ class MUI_TextUtil
 	{
 		if (!tw)
 			return;
+		tw.SetFlags(WidgetFlags.NO_LOCALIZATION);
 		// Empty still looks up string-table id "". Use a space; callers that mean
 		// "no text" should hide the widget or skip MeasureText/DrawText.
 		if (text.IsEmpty())
-			tw.SetTextFormat("%1", " ");
+			tw.SetText(" ");
 		else
-			tw.SetTextFormat("%1", text);
+			tw.SetText(text);
 	}
 }
