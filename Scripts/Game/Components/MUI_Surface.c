@@ -85,10 +85,33 @@ class MUI_Surface : MUI_Panel
 	//------------------------------------------------------------------------------------------------
 	override void SyncHostWidgets()
 	{
-		if (!m_bBlurEnabled || !IsVisible())
+		// Tree sync visits hidden ancestors so blurs can be cleared. Paint
+		// does not, so a visible card under a hidden HintLayer still has
+		// last-frame opacity and would keep its BlurWidget on screen.
+		bool hideBlur = false;
+		if (!m_bBlurEnabled)
+			hideBlur = true;
+		else
+		{
+			MUI_Node walk = this;
+			while (walk)
+			{
+				if (!walk.IsVisible())
+				{
+					hideBlur = true;
+					break;
+				}
+				walk = walk.GetParent();
+			}
+		}
+
+		if (hideBlur)
 		{
 			if (m_wBlur)
+			{
 				m_wBlur.SetVisible(false);
+				m_wBlur.SetIntensity(0);
+			}
 			return;
 		}
 
