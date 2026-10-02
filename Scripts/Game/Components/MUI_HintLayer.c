@@ -301,6 +301,43 @@ class MUI_HintLayer : MUI_Node
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Narrow a ring to what the target's clipping ancestors leave on screen, so the ring of a
+	//! control half scrolled out of a list stops at the list's edge.
+	//! \return false when nothing of it is left
+	protected bool ClipRing(MUI_Node target, inout float x, inout float y, inout float w, inout float h)
+	{
+		MUI_Node walk = target.GetParent();
+		while (walk)
+		{
+			if (walk.ClipsChildren())
+			{
+				MUI_Rect c = walk.GetWorldRect();
+				MUI_Style st = walk.GetStyle();
+				float left = walk.DrawX() + st.m_fPadL;
+				float top = walk.DrawY() + st.m_fPadT;
+				float right = walk.DrawX() + c.m_fW - st.m_fPadR;
+				float bottom = walk.DrawY() + c.m_fH - st.m_fPadB;
+				if (x < left)
+				{
+					w = w - (left - x);
+					x = left;
+				}
+				if (y < top)
+				{
+					h = h - (top - y);
+					y = top;
+				}
+				if (x + w > right)
+					w = right - x;
+				if (y + h > bottom)
+					h = bottom - y;
+			}
+			walk = walk.GetParent();
+		}
+		return w >= 1 && h >= 1;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected void SyncHintState()
 	{
 		if (!m_aHints)
@@ -434,8 +471,13 @@ class MUI_HintLayer : MUI_Node
 			float y = target.DrawY() - pad;
 			float w = wr.m_fW + pad * 2;
 			float h = wr.m_fH + pad * 2;
-			surface.FillRect(x, y, w, h, MUI_ColorUtil.Fade(theme.Accent, op * 0.14), 8);
-			surface.StrokeRect(x, y, w, h, MUI_ColorUtil.Fade(theme.Cyan, op * 0.95), 1.6, 8);
+			if (!ClipRing(target, x, y, w, h))
+				continue;
+			float radius = 8;
+			if (h < radius * 2)
+				radius = h * 0.5;
+			surface.FillRect(x, y, w, h, MUI_ColorUtil.Fade(theme.Accent, op * 0.14), radius);
+			surface.StrokeRect(x, y, w, h, MUI_ColorUtil.Fade(theme.Cyan, op * 0.95), 1.6, radius);
 
 			string badge = hint.m_iIndex.ToString();
 			float bw = 22;
